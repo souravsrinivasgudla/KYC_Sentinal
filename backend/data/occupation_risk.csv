@@ -1,0 +1,21 @@
+occupation,risk_score
+Teacher,5
+Engineer,5
+Doctor,5
+Nurse,5
+Accountant,5
+Software Developer,5
+Student,5
+Retired,5
+Business Owner,20
+Real Estate Agent,15
+Cash-Intensive Business Owner,25
+Politician,30
+Government Official,25
+Diplomat,20
+Arms Dealer,35
+Casino Operator,30
+Cryptocurrency Trader,25
+Money Exchange Operator,30
+Import Export Trader,20
+Private Military Contractor,30

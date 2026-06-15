@@ -1,0 +1,74 @@
+[
+  {
+    "id": "AM001",
+    "subject": "Ahmad Al-Rashid",
+    "aliases": ["Ahmad Rashid"],
+    "title": "Iranian Minister Linked to Sanctions Evasion Network",
+    "source": "Financial Times",
+    "date": "2024-08-15",
+    "severity": "High",
+    "categories": ["sanctions evasion", "money laundering", "corruption"],
+    "summary": "Investigation reveals trade minister involved in complex sanctions evasion scheme using shell companies.",
+    "url": "https://example.com/ft-iran-minister"
+  },
+  {
+    "id": "AM002",
+    "subject": "Kim Jong-un",
+    "aliases": ["Kim Jong Un"],
+    "title": "UN Report Documents Nuclear Program Funding",
+    "source": "Reuters",
+    "date": "2024-11-02",
+    "severity": "High",
+    "categories": ["regulatory violations", "money laundering"],
+    "summary": "UN panel finds evidence of illicit financial networks funding weapons programs.",
+    "url": "https://example.com/reuters-un-report"
+  },
+  {
+    "id": "AM003",
+    "subject": "Viktor Petrov",
+    "aliases": ["Victor Petrov"],
+    "title": "Russian Trader Under Investigation for Arms Smuggling",
+    "source": "BBC News",
+    "date": "2024-06-20",
+    "severity": "Medium",
+    "categories": ["regulatory violations", "fraud"],
+    "summary": "Authorities investigating import-export firm for circumventing arms embargoes.",
+    "url": "https://example.com/bbc-petrov"
+  },
+  {
+    "id": "AM004",
+    "subject": "Carlos Mendez",
+    "aliases": ["C. Mendez"],
+    "title": "Mexican Businessman Accused of Tax Evasion",
+    "source": "El Universal",
+    "date": "2024-09-10",
+    "severity": "High",
+    "categories": ["tax evasion", "fraud"],
+    "summary": "Tax authorities allege undeclared cash transactions exceeding $2M through retail businesses.",
+    "url": "https://example.com/el-universal-mendez"
+  },
+  {
+    "id": "AM005",
+    "subject": "Marco Silva",
+    "aliases": ["M. Silva"],
+    "title": "Brazilian Entrepreneur Named in Corruption Probe",
+    "source": "Globo",
+    "date": "2024-03-22",
+    "severity": "Medium",
+    "categories": ["corruption", "fraud"],
+    "summary": "Business owner linked to municipal contract kickback scheme in São Paulo.",
+    "url": "https://example.com/globo-silva"
+  },
+  {
+    "id": "AM006",
+    "subject": "James Wilson",
+    "aliases": [],
+    "title": "Local Teacher Wins Community Award",
+    "source": "City Herald",
+    "date": "2024-01-05",
+    "severity": "Low",
+    "categories": [],
+    "summary": "Positive community recognition - no adverse findings.",
+    "url": "https://example.com/city-herald-wilson"
+  }
+]

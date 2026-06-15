@@ -1,0 +1,57 @@
+from typing import Any, Literal, Optional
+from pydantic import BaseModel, Field
+
+
+class CustomerInput(BaseModel):
+    name: str
+    dob: str
+    nationality: str
+    occupation: str
+    source_of_funds: str = ""
+    id_number: str = ""
+    evidence_ids: list[str] = Field(default_factory=list)
+
+
+class CustomKYCRequest(BaseModel):
+    name: str
+    dob: str
+    nationality: str
+    occupation: str
+    source_of_funds: str = ""
+    id_number: str = ""
+
+
+class AgentEvent(BaseModel):
+    agent: str
+    action: str
+    timestamp: str
+    details: dict[str, Any] = Field(default_factory=dict)
+    duration_ms: Optional[int] = None
+
+
+class HumanReviewInput(BaseModel):
+    case_id: str
+    action: Literal["approve", "override", "escalate"]
+    comment: str = ""
+    reviewer: str = "Compliance Analyst"
+
+
+class KYCState(BaseModel):
+    case_id: str = ""
+    customer_profile: dict[str, Any] = Field(default_factory=dict)
+    uploaded_evidence: list[dict[str, Any]] = Field(default_factory=list)
+    groq_verification: dict[str, Any] = Field(default_factory=dict)
+    evidence_validation: dict[str, Any] = Field(default_factory=dict)
+    document_extraction: dict[str, Any] = Field(default_factory=dict)
+    # XGBoost Indian document verification result
+    document_verdict: dict[str, Any] = Field(default_factory=dict)
+    entity_resolution: dict[str, Any] = Field(default_factory=dict)
+    screening_results: dict[str, Any] = Field(default_factory=dict)
+    adverse_media: dict[str, Any] = Field(default_factory=dict)
+    financial_profile: dict[str, Any] = Field(default_factory=dict)
+    risk_assessment: dict[str, Any] = Field(default_factory=dict)
+    explanation: dict[str, Any] = Field(default_factory=dict)
+    decision: dict[str, Any] = Field(default_factory=dict)
+    human_review: dict[str, Any] = Field(default_factory=dict)
+    audit_log: list[AgentEvent] = Field(default_factory=list)
+    workflow_path: list[str] = Field(default_factory=list)

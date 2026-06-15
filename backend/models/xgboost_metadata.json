@@ -1,0 +1,190 @@
+{
+  "features": [
+    "pep_flag",
+    "sanctions_flag",
+    "fatf_country_flag",
+    "ofac_country_flag",
+    "sectoral_sanctions_flag",
+    "ownership_opacity_score",
+    "sector_risk_enc",
+    "client_type_enc",
+    "sector_enc",
+    "country_risk_score",
+    "tx_count",
+    "tx_total_amount",
+    "tx_avg_amount",
+    "tx_max_amount",
+    "tx_std_amount",
+    "ofac_hit_count",
+    "fatf_tx_count",
+    "structuring_count",
+    "rapid_movement_count",
+    "trade_mispricing_count",
+    "unique_counterparties",
+    "ofac_hit_ratio",
+    "suspicious_tx_ratio"
+  ],
+  "client_type_classes": [
+    "Corporate",
+    "Financial Institution",
+    "Individual",
+    "NGO"
+  ],
+  "sector_classes": [
+    "Casino/Gambling",
+    "Consulting",
+    "Crypto Exchange",
+    "Defense/Arms",
+    "Energy/Oil",
+    "Financial Services",
+    "Import/Export",
+    "NGO/Charity",
+    "Real Estate",
+    "Retail",
+    "Tech"
+  ],
+  "sector_risk_map": {
+    "Low": 0,
+    "Medium": 1,
+    "High": 2
+  },
+  "high_risk_countries": [
+    "CD",
+    "SD",
+    "PG",
+    "AF",
+    "SY",
+    "CF",
+    "LY",
+    "VE",
+    "SS",
+    "HT",
+    "NI",
+    "PH",
+    "MM",
+    "BY",
+    "BI",
+    "SO",
+    "RU",
+    "LB",
+    "MZ",
+    "ZW",
+    "IR",
+    "KP",
+    "YE",
+    "CU"
+  ],
+  "medium_risk_countries": [
+    "EG",
+    "BD",
+    "MA",
+    "AZ",
+    "UA",
+    "CO",
+    "TH",
+    "DZ",
+    "VN",
+    "GT",
+    "TN",
+    "MX",
+    "TR",
+    "NG",
+    "KE",
+    "GE",
+    "HN",
+    "SV",
+    "ID",
+    "GH",
+    "ET",
+    "PE",
+    "PK",
+    "KZ",
+    "TZ"
+  ],
+  "risk_thresholds": {
+    "low_max": 2.2142857142857144,
+    "high_min": 3.5952380952380953
+  },
+  "label_map": {
+    "0": "Low",
+    "1": "Medium",
+    "2": "High"
+  },
+  "score_map": {
+    "0": 25,
+    "1": 55,
+    "2": 80
+  },
+  "metrics": {
+    "accuracy": 0.9675,
+    "cv_mean": 0.9725000000000001,
+    "cv_std": 0.007745966692414841,
+    "feature_importances": {
+      "pep_flag": 0.08126533031463623,
+      "sanctions_flag": 0.14211708307266235,
+      "fatf_country_flag": 0.049414169043302536,
+      "ofac_country_flag": 0.1906570941209793,
+      "sectoral_sanctions_flag": 0.09048864990472794,
+      "ownership_opacity_score": 0.02816980518400669,
+      "sector_risk_enc": 0.03399227187037468,
+      "client_type_enc": 0.00725324684754014,
+      "sector_enc": 0.04182928800582886,
+      "country_risk_score": 0.1309289187192917,
+      "tx_count": 0.006373442243784666,
+      "tx_total_amount": 0.012468863278627396,
+      "tx_avg_amount": 0.014037433080375195,
+      "tx_max_amount": 0.021760044619441032,
+      "tx_std_amount": 0.03482606261968613,
+      "ofac_hit_count": 0.03315148130059242,
+      "fatf_tx_count": 0.011988555081188679,
+      "structuring_count": 0.007782123051583767,
+      "rapid_movement_count": 0.017143502831459045,
+      "trade_mispricing_count": 0.0,
+      "unique_counterparties": 0.010659631341695786,
+      "ofac_hit_ratio": 0.01575840450823307,
+      "suspicious_tx_ratio": 0.017934530973434448
+    },
+    "top_features": [
+      {
+        "feature": "ofac_country_flag",
+        "importance": 0.1906570941209793
+      },
+      {
+        "feature": "sanctions_flag",
+        "importance": 0.14211708307266235
+      },
+      {
+        "feature": "country_risk_score",
+        "importance": 0.1309289187192917
+      },
+      {
+        "feature": "sectoral_sanctions_flag",
+        "importance": 0.09048864990472794
+      },
+      {
+        "feature": "pep_flag",
+        "importance": 0.08126533031463623
+      },
+      {
+        "feature": "fatf_country_flag",
+        "importance": 0.049414169043302536
+      },
+      {
+        "feature": "sector_enc",
+        "importance": 0.04182928800582886
+      },
+      {
+        "feature": "tx_std_amount",
+        "importance": 0.03482606261968613
+      },
+      {
+        "feature": "sector_risk_enc",
+        "importance": 0.03399227187037468
+      },
+      {
+        "feature": "ofac_hit_count",
+        "importance": 0.03315148130059242
+      }
+    ]
+  }
+}

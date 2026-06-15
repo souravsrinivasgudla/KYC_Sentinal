@@ -1,0 +1,12 @@
+{
+  "sources": [
+    "opensanctions"
+  ],
+  "watchlist_count": 5000,
+  "sanctions_entries": 3000,
+  "pep_entries": 2000,
+  "opensanctions_sanctions_rows": 3000,
+  "opensanctions_pep_rows": 2000,
+  "kaggle_available": false,
+  "kaggle_datasets": []
+}

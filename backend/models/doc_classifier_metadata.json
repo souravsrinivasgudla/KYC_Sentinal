@@ -1,0 +1,240 @@
+{
+  "doc_types": [
+    "aadhaar_card",
+    "pan_card",
+    "passport",
+    "voter_id",
+    "driving_licence",
+    "bank_passbook"
+  ],
+  "doc_label_map": {
+    "aadhaar_card": 0,
+    "pan_card": 1,
+    "passport": 2,
+    "voter_id": 3,
+    "driving_licence": 4,
+    "bank_passbook": 5
+  },
+  "doc_label_map_inv": {
+    "0": "aadhaar_card",
+    "1": "pan_card",
+    "2": "passport",
+    "3": "voter_id",
+    "4": "driving_licence",
+    "5": "bank_passbook"
+  },
+  "doc_kyc_purpose": {
+    "aadhaar_card": {
+      "poi": true,
+      "poa": true
+    },
+    "pan_card": {
+      "poi": true,
+      "poa": false
+    },
+    "passport": {
+      "poi": true,
+      "poa": true
+    },
+    "voter_id": {
+      "poi": true,
+      "poa": true
+    },
+    "driving_licence": {
+      "poi": true,
+      "poa": true
+    },
+    "bank_passbook": {
+      "poi": false,
+      "poa": true
+    }
+  },
+  "features_type": [
+    "has_doc_number",
+    "doc_number_length",
+    "doc_number_format_ok",
+    "has_name",
+    "has_dob",
+    "has_address",
+    "has_gender",
+    "has_photo",
+    "has_expiry",
+    "expiry_valid",
+    "has_issuer",
+    "has_signature",
+    "has_qr_or_barcode",
+    "has_enrolment_no",
+    "name_matches_profile",
+    "address_complete",
+    "language_secondary_present",
+    "is_poi",
+    "is_poa",
+    "number_length_diff",
+    "completeness_score",
+    "trust_signal_score",
+    "expiry_concern"
+  ],
+  "features_validity": [
+    "has_doc_number",
+    "doc_number_length",
+    "doc_number_format_ok",
+    "has_name",
+    "has_dob",
+    "has_address",
+    "has_gender",
+    "has_photo",
+    "has_expiry",
+    "expiry_valid",
+    "has_issuer",
+    "has_signature",
+    "has_qr_or_barcode",
+    "has_enrolment_no",
+    "name_matches_profile",
+    "address_complete",
+    "language_secondary_present",
+    "is_poi",
+    "is_poa",
+    "number_length_diff",
+    "completeness_score",
+    "trust_signal_score",
+    "expiry_concern",
+    "doc_type_label"
+  ],
+  "type_model_metrics": {
+    "accuracy": 1.0,
+    "cv_mean": 1.0,
+    "cv_std": 0.0,
+    "feature_importances": {
+      "has_doc_number": 0.0,
+      "doc_number_length": 0.0908687561750412,
+      "doc_number_format_ok": 0.002257502404972911,
+      "has_name": 0.0,
+      "has_dob": 0.04959435388445854,
+      "has_address": 0.026377011090517044,
+      "has_gender": 0.033558424562215805,
+      "has_photo": 0.0021242403890937567,
+      "has_expiry": 0.048604972660541534,
+      "expiry_valid": 0.0,
+      "has_issuer": 0.0,
+      "has_signature": 0.07799635827541351,
+      "has_qr_or_barcode": 0.0053024920634925365,
+      "has_enrolment_no": 0.20020976662635803,
+      "name_matches_profile": 8.13059596111998e-05,
+      "address_complete": 0.012136206962168217,
+      "language_secondary_present": 0.016172047704458237,
+      "is_poi": 0.19008378684520721,
+      "is_poa": 0.19930195808410645,
+      "number_length_diff": 0.03354208916425705,
+      "completeness_score": 0.009438767097890377,
+      "trust_signal_score": 0.0023498653899878263,
+      "expiry_concern": 0.0
+    }
+  },
+  "validity_model_metrics": {
+    "accuracy": 0.9177777777777778,
+    "cv_mean": 0.921,
+    "cv_std": 0.005777777777777791,
+    "feature_importances": {
+      "has_doc_number": 0.0,
+      "doc_number_length": 0.017767244949936867,
+      "doc_number_format_ok": 0.18371014297008514,
+      "has_name": 0.09895028918981552,
+      "has_dob": 0.017010938376188278,
+      "has_address": 0.03193071112036705,
+      "has_gender": 0.10170949250459671,
+      "has_photo": 0.010520183481276035,
+      "has_expiry": 0.02334940992295742,
+      "expiry_valid": 0.10138195753097534,
+      "has_issuer": 0.0,
+      "has_signature": 0.01098389457911253,
+      "has_qr_or_barcode": 0.008292523212730885,
+      "has_enrolment_no": 0.0019481268245726824,
+      "name_matches_profile": 0.036412619054317474,
+      "address_complete": 0.018785787746310234,
+      "language_secondary_present": 0.002721640048548579,
+      "is_poi": 0.0532224141061306,
+      "is_poa": 0.03227804973721504,
+      "number_length_diff": 0.00397207448258996,
+      "completeness_score": 0.07020452618598938,
+      "trust_signal_score": 0.043923117220401764,
+      "expiry_concern": 0.12401057034730911,
+      "doc_type_label": 0.006914293393492699
+    }
+  },
+  "validity_rules": {
+    "aadhaar_card": {
+      "required": [
+        "has_doc_number",
+        "doc_number_format_ok",
+        "has_name",
+        "has_dob",
+        "has_address"
+      ],
+      "number_length": 12,
+      "number_pattern": "^[2-9]\\d{11}$",
+      "description": "12-digit UIDAI number, starts with 2-9"
+    },
+    "pan_card": {
+      "required": [
+        "has_doc_number",
+        "doc_number_format_ok",
+        "has_name",
+        "has_dob"
+      ],
+      "number_length": 10,
+      "number_pattern": "^[A-Z]{5}[0-9]{4}[A-Z]{1}$",
+      "description": "5 letters + 4 digits + 1 letter (uppercase)"
+    },
+    "passport": {
+      "required": [
+        "has_doc_number",
+        "doc_number_format_ok",
+        "has_name",
+        "has_dob",
+        "has_photo",
+        "expiry_valid",
+        "has_qr_or_barcode"
+      ],
+      "number_length": 8,
+      "number_pattern": "^[A-Z][0-9]{7}$",
+      "description": "1 uppercase letter + 7 digits, must not be expired, MRZ required"
+    },
+    "voter_id": {
+      "required": [
+        "has_doc_number",
+        "doc_number_format_ok",
+        "has_name",
+        "has_photo"
+      ],
+      "number_length": 10,
+      "number_pattern": "^[A-Z]{3}[0-9]{7}$",
+      "description": "3 uppercase letters + 7 digits (EPIC number)"
+    },
+    "driving_licence": {
+      "required": [
+        "has_doc_number",
+        "doc_number_format_ok",
+        "has_name",
+        "has_dob",
+        "expiry_valid"
+      ],
+      "number_length": 15,
+      "number_pattern": "^[A-Z]{2}-\\d{2}-\\d{4,7}$",
+      "description": "State code + year + serial, must not be expired"
+    },
+    "bank_passbook": {
+      "required": [
+        "has_doc_number",
+        "has_name",
+        "has_address",
+        "has_qr_or_barcode"
+      ],
+      "number_length_min": 9,
+      "number_length_max": 18,
+      "description": "Account number 9-18 digits, IFSC required, POA only"
+    }
+  },
+  "sample_count": 9000,
+  "valid_count": 6300,
+  "invalid_count": 2700
+}

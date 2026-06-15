@@ -1,0 +1,14 @@
+node_modules/
+dist/
+venv/
+__pycache__/
+*.pyc
+.env
+backend/data/uploads/
+vector_db/
+chroma_db/
+data/kyc_sentinel.db
+backend/data/raw/
+backend/data/kaggle/
+.DS_Store
+*.egg-info/
