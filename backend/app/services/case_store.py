@@ -89,7 +89,9 @@ def list_cases() -> list[dict]:
                 "risk_score": state.risk_assessment.get("risk_score", 0),
                 "risk_level": state.risk_assessment.get("risk_level", "Unknown"),
                 "decision": state.decision.get("status", "PENDING"),
+                "final_status": state.decision.get("final_status"),
                 "requires_review": state.decision.get("requires_human_review", False),
+                "human_reviewed": state.decision.get("human_reviewed", False),
                 "missing_fields": state.document_extraction.get("fields_missing", []),
             }
         )
