@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { CheckCircle, AlertTriangle, XCircle, Shield, Sparkles } from 'lucide-react'
+import { Routes, Route, Link, useLocation } from 'react-router-dom'
+import { CheckCircle, AlertTriangle, XCircle, Shield } from 'lucide-react'
 import {
   CustomCustomer,
   KYCResult,
@@ -9,13 +10,16 @@ import {
   fetchCountries,
   fetchOccupations,
   fetchCases,
-  fetchCase,
   runKYCStream,
-  submitReview,
   checkHealth,
 } from './api'
 import CustomKYCForm from './components/CustomKYCForm'
 import StepFlow from './components/StepFlow'
+import NavBar from './components/NavBar'
+import HumanReviewPanel from './components/HumanReviewPanel'
+import ProfilesPage from './pages/ProfilesPage'
+import ProfileDetailPage from './pages/ProfileDetailPage'
+import { decisionClass } from './utils/decision'
 
 type Tab = 'overview' | 'pipeline' | 'documents' | 'evidence' | 'audit'
 
@@ -25,11 +29,7 @@ const EMPTY: CustomCustomer = {
 
 const PROFILE_KEYS = ['name', 'dob', 'nationality', 'occupation', 'source_of_funds', 'id_number']
 
-function decisionClass(s: string) {
-  if (s === 'APPROVE') return 'approve'
-  if (s === 'REVIEW') return 'review'
-  return 'escalate'
-}
+const RECENT_LIMIT = 10
 
 function DecisionIcon({ status }: { status: string }) {
   if (status === 'APPROVE') return <CheckCircle size={32} />
@@ -38,6 +38,7 @@ function DecisionIcon({ status }: { status: string }) {
 }
 
 export default function App() {
+  const location = useLocation()
   const [countries, setCountries] = useState<string[]>([])
   const [occupations, setOccupations] = useState<string[]>([])
   const [storedCases, setStoredCases] = useState<StoredCase[]>([])
@@ -49,7 +50,6 @@ export default function App() {
   const [currentStepId, setCurrentStepId] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [tab, setTab] = useState<Tab>('overview')
-  const [comment, setComment] = useState('')
   const [groqOk, setGroqOk] = useState(false)
   const [navScrolled, setNavScrolled] = useState(false)
 
@@ -66,6 +66,10 @@ export default function App() {
     window.addEventListener('scroll', onScroll)
     return () => window.removeEventListener('scroll', onScroll)
   }, [refreshHistory])
+
+  useEffect(() => {
+    setNavScrolled(false)
+  }, [location.pathname])
 
   const handleStep = useCallback((step: StepEvent) => {
     if (step.status === 'running') setCurrentStepId(step.step_id)
@@ -111,36 +115,32 @@ export default function App() {
     }
   }, [form, documents, handleStep, refreshHistory])
 
-  const loadCase = async (id: string) => {
-    try {
-      setResult(await fetchCase(id))
-      setSteps([])
-      setTab('overview')
-    } catch { setError('Failed to load case') }
-  }
-
-  const handleReview = async (action: string) => {
-    if (!result) return
-    setLoading(true)
-    try {
-      setResult(await submitReview(result.case_id, action, comment, 'Compliance Analyst'))
-      refreshHistory()
-    } finally { setLoading(false) }
+  const handleReview = async (updated: KYCResult) => {
+    setResult(updated)
+    refreshHistory()
   }
 
   const fieldStatus = result?.field_status || result?.document_extraction?.field_status as Record<string, FieldStatus> | undefined
   const dc = result ? decisionClass(result.decision.status) : ''
+  const recentCases = storedCases.slice(0, RECENT_LIMIT)
 
   return (
     <>
-      <nav className={`nf-nav ${navScrolled ? 'scrolled' : ''}`}>
-        <div className="nf-logo">KYC SENTINEL</div>
-        <div className="nf-nav-tags">
-          {groqOk && <span className="nf-tag"><Sparkles size={10} style={{ marginRight: 4 }} />Groq AI</span>}
-          <span className="nf-tag">AMD Ready</span>
-        </div>
-      </nav>
+      <NavBar groqOk={groqOk} navScrolled={navScrolled} />
 
+      <Routes>
+        <Route
+          path="/profiles/:caseId"
+          element={<ProfileDetailPage onRefresh={refreshHistory} />}
+        />
+        <Route
+          path="/profiles"
+          element={<ProfilesPage cases={storedCases} onRefresh={refreshHistory} />}
+        />
+        <Route
+          path="/"
+          element={
+            <>
       <section className="nf-hero">
         <div className="nf-hero-content">
           <h1>Know Your <span>Customer</span></h1>
@@ -152,22 +152,22 @@ export default function App() {
       </section>
 
       <main className="nf-main">
-        {storedCases.length > 0 && (
+        {recentCases.length > 0 && (
           <section className="nf-row">
             <h2 className="nf-section-title">Recent Verifications</h2>
             <div className="nf-row-scroll">
-              {storedCases.map((c) => (
-                <div
+              {recentCases.map((c) => (
+                <Link
                   key={c.case_id}
+                  to={`/profiles/${c.case_id}`}
                   className={`nf-poster ${result?.case_id === c.case_id ? 'active' : ''}`}
-                  onClick={() => loadCase(c.case_id)}
                 >
                   <div className={`nf-poster-top ${decisionClass(c.decision)}`}>{c.risk_score}</div>
                   <div className="nf-poster-body">
                     <div className="nf-poster-name">{c.customer_name}</div>
                     <div className="nf-poster-meta">{c.decision} · {c.case_id}</div>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           </section>
@@ -855,27 +855,21 @@ export default function App() {
                 </div>
 
                 {result.decision.requires_human_review && !result.decision.human_reviewed && (
-                  <div className="nf-card nf-review">
-                    <h3>Human Review Required</h3>
-                    {Boolean((result.human_review?.groq_officer_briefing as Record<string, unknown>)?.summary) && (
-                      <p style={{ fontSize: '0.85rem', color: 'var(--nf-muted)', margin: '0.5rem 0' }}>
-                        <Sparkles size={14} style={{ display: 'inline', marginRight: 4 }} />
-                        {String((result.human_review.groq_officer_briefing as Record<string, string>).summary)}
-                      </p>
-                    )}
-                    <textarea placeholder="Officer comments..." value={comment} onChange={(e) => setComment(e.target.value)} />
-                    <div className="nf-review-actions">
-                      <button className="nf-btn-sm nf-btn-approve" onClick={() => handleReview('approve')}>Approve</button>
-                      <button className="nf-btn-sm nf-btn-override" onClick={() => handleReview('override')}>Override</button>
-                      <button className="nf-btn-sm nf-btn-escalate" onClick={() => handleReview('escalate')}>Escalate</button>
-                    </div>
-                  </div>
+                  <HumanReviewPanel
+                    caseId={result.case_id}
+                    briefing={String((result.human_review?.groq_officer_briefing as Record<string, string> | undefined)?.summary || '') || undefined}
+                    onComplete={handleReview}
+                  />
                 )}
               </>
             )}
           </div>
         </div>
       </main>
+            </>
+          }
+        />
+      </Routes>
     </>
   )
 }
