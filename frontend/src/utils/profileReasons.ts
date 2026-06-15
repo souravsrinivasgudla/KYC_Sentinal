@@ -115,6 +115,17 @@ export function collectReasons(result: KYCResult): ProfileReason[] {
     })
   }
 
+  if (decision.name_mismatch?.detected || result.document_verdict?.name_mismatch || result.explanation?.name_mismatch) {
+    reasons.push({
+      label: 'Name Mismatch',
+      detail:
+        decision.name_mismatch?.reason
+        || result.explanation?.name_mismatch?.short_reason
+        || 'The declared name does not match the name on the driving licence.',
+      severity: 'high',
+    })
+  }
+
   if (!groqReasons.length && breakdown.length > 0 && !result.document_rejected) {
     breakdown
       .filter((b) => b.source !== 'ml' && b.points >= 10)

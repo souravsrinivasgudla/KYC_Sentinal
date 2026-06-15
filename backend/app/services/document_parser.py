@@ -85,9 +85,15 @@ def extract_text(filename: str, content: bytes) -> dict:
             extracted = "\n".join(pages).strip()
 
             if len(extracted) >= 30:
-                # Has meaningful selectable text
+                # Has meaningful selectable text — also try embedded images for vision
                 result["text_content"] = extracted[:MAX_TEXT_LEN]
                 result["extraction_method"] = "pypdf"
+                page_images = _extract_images_from_pdf(content)
+                if page_images:
+                    img_bytes = _resize_image_if_needed(page_images[0], ".jpg")
+                    result["image_base64"] = base64.b64encode(img_bytes).decode("ascii")
+                    result["image_media_type"] = "image/jpeg"
+                    result["needs_vision"] = True
             else:
                 # Image-based / scanned PDF — no selectable text
                 # Try to extract embedded page images

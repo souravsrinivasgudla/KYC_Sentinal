@@ -11,7 +11,7 @@ FIELD_LABELS = {
     "nationality": "Nationality",
     "occupation": "Occupation",
     "source_of_funds": "Source of Funds",
-    "id_number": "ID Number",
+    "id_number": "ID / DL Number",
 }
 
 

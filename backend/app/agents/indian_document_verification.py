@@ -87,6 +87,38 @@ REQUIRE_POA = False
 # Stage 1 helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
+def _sanitize_groq_dl_extraction(groq_doc: dict, declared_id: str) -> None:
+    """Remove date false-positives from Groq DL fields; align id_number_matches."""
+    from app.services.id_cross_check import (
+        ids_equivalent,
+        is_dl_format,
+        is_plausible_dl_number,
+    )
+
+    if groq_doc.get("detected_doc_type") != "driving_licence":
+        return
+
+    ef = dict(groq_doc.get("extracted_fields") or {})
+    doc_num = str(ef.get("document_number") or "").strip()
+    pm = dict(groq_doc.get("profile_match") or {})
+
+    if doc_num and not is_plausible_dl_number(doc_num):
+        ef["document_number"] = None
+        doc_num = ""
+
+    if declared_id and doc_num:
+        pm["id_number_matches"] = ids_equivalent(declared_id, doc_num)
+    elif (
+        declared_id
+        and is_dl_format(declared_id)
+        and pm.get("id_number_matches") is True
+    ):
+        ef["document_number"] = declared_id.strip().upper()
+
+    groq_doc["extracted_fields"] = ef
+    groq_doc["profile_match"] = pm
+
+
 def _run_groq_extraction(
     uploaded: list[dict],
     customer_profile: dict,
@@ -106,10 +138,20 @@ def _run_groq_extraction(
         return {}
 
     result_map: dict[str, dict] = {}
+    declared_id = str(customer_profile.get("id_number") or "").strip()
 
-    # Split docs by whether they need vision or text processing
-    vision_docs  = [d for d in uploaded if d.get("needs_vision") or d.get("is_image")]
-    text_docs    = [d for d in uploaded if not (d.get("needs_vision") or d.get("is_image"))]
+    # Vision path: images, scanned PDFs, and text PDFs with extractable page images
+    vision_docs = [
+        d for d in uploaded
+        if d.get("image_base64") or d.get("is_image") or d.get("needs_vision")
+    ]
+    vision_fnames = {d.get("original_filename") for d in vision_docs}
+    text_docs = [
+        d for d in uploaded
+        if d.get("original_filename") not in vision_fnames
+        and d.get("extraction_method") in ("pypdf", "text")
+        and len((d.get("text_content") or "").strip()) >= 30
+    ]
 
     # ── Vision path: one call per image document ──────────────────────────────
     for doc in vision_docs:
@@ -135,6 +177,7 @@ def _run_groq_extraction(
             for doc_result in vision_result.get("documents", []):
                 result_fname = doc_result.get("filename", fname)
                 doc_result["_extraction_method"] = "vision"
+                _sanitize_groq_dl_extraction(doc_result, declared_id)
                 result_map[result_fname] = doc_result
                 log.info(
                     "  Vision extracted: type=%s, doc_number=%s, name=%s",
@@ -163,6 +206,7 @@ def _run_groq_extraction(
                     fname = doc_result.get("filename", "")
                     if fname:
                         doc_result["_extraction_method"] = "text"
+                        _sanitize_groq_dl_extraction(doc_result, declared_id)
                         result_map[fname] = doc_result
             else:
                 log.warning("Groq text extraction returned non-parseable response")
@@ -506,12 +550,23 @@ def _evaluate_document(
                 "profile mismatch",
                 "physical document inspection",
                 "year",
+                "document number format invalid",  # DL formats vary by state
             )
             structural_issues = [
                 i for i in issues
                 if not any(kw in i.lower() for kw in SOFT_KEYWORDS)
             ]
             soft_issues = [i for i in issues if i not in structural_issues]
+
+            # DL with Groq-confirmed photo + valid expiry → treat expiry/photo text issues as soft
+            groq_ef = (groq_doc or {}).get("extracted_fields", {})
+            groq_photo = groq_ef.get("photo_present") is True
+            if doc_type == "driving_licence" and groq_photo:
+                structural_issues = [
+                    i for i in structural_issues
+                    if "expired" not in i.lower() and "photograph" not in i.lower()
+                ]
+                soft_issues = [i for i in issues if i not in structural_issues]
 
             # Case A: Only photo issue from text-extracted PDF (no image data)
             photo_only = (
@@ -521,15 +576,21 @@ def _evaluate_document(
             )
 
             # Case B: Image/vision doc — Groq Vision extracted core fields successfully.
-            # Number format ok + name present + photo confirmed by Groq Vision +
-            # integrity score is good → the only remaining issues are soft ones
-            # (e.g. address on back of card, DOB year vs full date format).
-            # → VERIFIED when Groq integrity is high, NEEDS_REVIEW otherwise.
             image_core_verified = (
-                is_img
+                (is_img or bool((groq_doc or {}).get("_extraction_method") == "vision"))
                 and has_good_number
                 and has_name
-                and has_photo_feat
+                and (has_photo_feat or groq_photo)
+                and len(structural_issues) == 0
+                and groq_appears_ok
+            )
+
+            # Case C: Text PDF driving licence — core fields from Groq text + valid number
+            pdf_dl_verified = (
+                doc_type == "driving_licence"
+                and method == "pypdf"
+                and has_good_number
+                and has_name
                 and len(structural_issues) == 0
                 and groq_appears_ok
             )
@@ -565,6 +626,22 @@ def _evaluate_document(
                     f"{DOC_DISPLAY.get(doc_type, doc_type)} core fields confirmed "
                     f"(type {type_conf:.0%}, number ✓, name ✓, photo ✓) — "
                     f"integrity {groq_score:.0%}, minor issues flagged for review"
+                )
+                issues = soft_issues
+
+            elif pdf_dl_verified and groq_score >= 0.65:
+                verdict = "VERIFIED"
+                verdict_reason = (
+                    f"Driving Licence verified from PDF "
+                    f"(type {type_conf:.0%}, number ✓, name ✓, integrity {groq_score:.0%})"
+                )
+                issues = soft_issues
+
+            elif pdf_dl_verified:
+                verdict = "NEEDS_REVIEW"
+                verdict_reason = (
+                    f"Driving Licence fields extracted from PDF — manual review recommended "
+                    f"(integrity {groq_score:.0%})"
                 )
                 issues = soft_issues
 
@@ -763,6 +840,7 @@ def indian_document_verification_agent(state: KYCState) -> KYCState:
     evidence_ids  = state.customer_profile.get("evidence_ids", [])
     uploaded      = state.uploaded_evidence or get_evidence(evidence_ids)
     customer_name = state.customer_profile.get("name", "")
+    declared_id   = state.customer_profile.get("id_number", "")
 
     # ── Stage 1: Groq field extraction ───────────────────────────────────────
     groq_map:    dict[str, dict] = {}
@@ -818,11 +896,69 @@ def indian_document_verification_agent(state: KYCState) -> KYCState:
 
     # ── Stage 2: XGBoost classification ──────────────────────────────────────
     log.info("Doc Verification Stage 2 — XGBoost ML classification")
+    from app.services.id_cross_check import (
+        extract_dl_number_from_text,
+        find_declared_dl_in_text,
+        is_dl_format,
+        is_plausible_dl_number,
+        normalize_dl_id,
+    )
+
     evaluations: list[dict[str, Any]] = []
     for doc in uploaded:
         fname    = doc.get("original_filename", "")
         groq_doc = groq_map.get(fname)
         evaluation = _evaluate_document(doc, customer_name, groq_doc)
+
+        # Driving licence: canonical ID is the DL No printed on the document
+        if evaluation.get("doc_type") == "driving_licence":
+            text = doc.get("text_content", "") or ""
+            evaluation["text_content"] = text
+            dl_no = extract_dl_number_from_text(text, declared_id=declared_id)
+            if not dl_no and groq_doc:
+                groq_num = str(
+                    (groq_doc.get("extracted_fields") or {}).get("document_number") or ""
+                ).strip()
+                if is_plausible_dl_number(groq_num):
+                    dl_no = groq_num
+                elif (
+                    (groq_doc.get("profile_match") or {}).get("id_number_matches") is True
+                    and declared_id
+                    and is_dl_format(declared_id)
+                ):
+                    dl_no = declared_id.strip().upper()
+            if dl_no and not is_plausible_dl_number(dl_no):
+                dl_no = find_declared_dl_in_text(declared_id, text) if declared_id else ""
+            if dl_no:
+                evaluation["dl_number_from_label"] = dl_no
+                evaluation["doc_number"] = normalize_dl_id(dl_no) if dl_no else evaluation.get("doc_number")
+                gf = evaluation.setdefault("groq_extracted_fields", {})
+                gf["document_number"] = dl_no
+                if groq_doc:
+                    groq_doc.setdefault("extracted_fields", {})["document_number"] = dl_no
+            else:
+                existing = str(evaluation.get("doc_number") or "")
+                if existing and not is_plausible_dl_number(existing):
+                    evaluation["doc_number"] = ""
+                gf = dict(evaluation.get("groq_extracted_fields") or {})
+                gnum = str(gf.get("document_number") or "")
+                if gnum and not is_plausible_dl_number(gnum):
+                    gf["document_number"] = None
+                    evaluation["groq_extracted_fields"] = gf
+
+            from app.services.name_cross_check import extract_name_from_dl_text
+
+            doc_name = extract_name_from_dl_text(text)
+            if not doc_name and groq_doc:
+                doc_name = str(
+                    (groq_doc.get("extracted_fields") or {}).get("full_name") or ""
+                ).strip()
+            if doc_name and doc_name.lower() not in ("null", "none", ""):
+                evaluation["name_from_document"] = doc_name.strip().upper()
+                gf = evaluation.setdefault("groq_extracted_fields", {})
+                if not gf.get("full_name"):
+                    gf["full_name"] = doc_name.strip().upper()
+
         evaluations.append(evaluation)
         log.debug(
             "  '%s' → type=%s (%.0f%%) verdict=%s [groq=%s, qr=%s]",
@@ -836,9 +972,10 @@ def indian_document_verification_agent(state: KYCState) -> KYCState:
 
     # ── ID number cross-check (declared vs document) ──────────────────────────
     from app.services.id_cross_check import check_id_mismatch, normalize_id
+    from app.services.name_cross_check import check_name_mismatch
 
-    declared_id = state.customer_profile.get("id_number", "")
     id_mismatch = check_id_mismatch(declared_id, {"per_document": evaluations})
+    name_mismatch = check_name_mismatch(customer_name, {"per_document": evaluations})
 
     if id_mismatch:
         log.warning(
@@ -858,6 +995,26 @@ def indian_document_verification_agent(state: KYCState) -> KYCState:
                     id_mismatch["short_reason"]
                 ]
 
+    if name_mismatch:
+        log.warning(
+            "Name mismatch on DL: declared=%s extracted=%s",
+            name_mismatch["declared"], name_mismatch["extracted"],
+        )
+        for ev in evaluations:
+            if ev.get("doc_type") != "driving_licence":
+                continue
+            ev["name_mismatch"] = True
+            ev["name_mismatch_detail"] = name_mismatch
+            if ev.get("verdict") == "VERIFIED":
+                ev["verdict"] = "NEEDS_REVIEW"
+                ev["verdict_reason"] = (
+                    f"Driving licence verified but entered name ({name_mismatch['declared']}) "
+                    f"does not match name on document ({name_mismatch['extracted']})"
+                )
+                ev["validity_issues"] = list(ev.get("validity_issues", [])) + [
+                    name_mismatch["short_reason"]
+                ]
+
     # ── Aggregate ─────────────────────────────────────────────────────────────
     verdict, summary, rejection_reasons = _aggregate_verdict(evaluations)
 
@@ -868,6 +1025,15 @@ def indian_document_verification_agent(state: KYCState) -> KYCState:
             summary = (
                 f"Documents structurally valid but ID number mismatch: "
                 f"entered {id_mismatch['declared']} vs document {id_mismatch['extracted']}"
+            )
+
+    if name_mismatch:
+        rejection_reasons.insert(0, name_mismatch["reason"])
+        if verdict == "VERIFIED":
+            verdict = "NEEDS_REVIEW"
+            summary = (
+                f"Documents structurally valid but name mismatch on driving licence: "
+                f"entered {name_mismatch['declared']} vs document {name_mismatch['extracted']}"
             )
 
     verified_count = sum(1 for e in evaluations if e["verdict"] == "VERIFIED")
@@ -897,6 +1063,7 @@ def indian_document_verification_agent(state: KYCState) -> KYCState:
         "qr_fallback_docs":       qr_fallback_docs,
         "qr_fallback_count":      qr_used_count,
         "id_mismatch":            id_mismatch,
+        "name_mismatch":          name_mismatch,
     }
 
     state.workflow_path.append("indian_document_verification")

@@ -109,6 +109,23 @@ def _rule_based_score(state: KYCState) -> tuple[int, list[dict]]:
             "detail": id_mismatch.get("short_reason", ""),
         })
 
+    name_mismatch = state.document_verdict.get("name_mismatch")
+    if not name_mismatch:
+        from app.services.name_cross_check import check_name_mismatch
+        name_mismatch = check_name_mismatch(
+            state.customer_profile.get("name", ""),
+            state.document_verdict,
+        )
+    if name_mismatch:
+        pts = 30
+        total += pts
+        breakdown.append({
+            "signal": "Driving Licence Name Mismatch",
+            "points": pts,
+            "source": "name_cross_check",
+            "detail": name_mismatch.get("short_reason", ""),
+        })
+
     return min(total, 100), breakdown
 
 

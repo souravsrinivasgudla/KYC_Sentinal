@@ -145,8 +145,12 @@ export default function CustomKYCForm({
           </div>
         </div>
         <div className={`nf-field ${!form.id_number?.trim() ? 'nf-field-warn' : ''}`}>
-          <label>ID Number {!form.id_number?.trim() && <span className="nf-warn-tag">Missing</span>}</label>
-          <input value={form.id_number} onChange={(e) => set('id_number', e.target.value)} placeholder="Passport / National ID" />
+          <label>ID / DL Number {!form.id_number?.trim() && <span className="nf-warn-tag">Missing</span>}</label>
+          <input
+            value={form.id_number}
+            onChange={(e) => set('id_number', e.target.value)}
+            placeholder="DL No. as on licence, PAN, Aadhaar, or Passport"
+          />
         </div>
       </div>
 

@@ -274,6 +274,25 @@ export default function App() {
                   </div>
                 )}
 
+                {(result.decision.name_mismatch?.detected || result.document_verdict?.name_mismatch || result.explanation?.name_mismatch) && (
+                  <div className="nf-banner-rejected" style={{ borderColor: 'rgba(255,165,0,0.6)', background: 'rgba(255,165,0,0.08)' }}>
+                    <AlertTriangle size={18} style={{ flexShrink: 0, color: 'var(--nf-warning)' }} />
+                    <div>
+                      <strong style={{ color: 'var(--nf-warning)' }}>Name Mismatch on Driving Licence</strong>
+                      <p style={{ fontSize: '0.82rem', marginTop: 3 }}>
+                        {result.decision.name_mismatch?.reason
+                          || result.explanation?.name_mismatch?.short_reason
+                          || 'The name you entered does not match the name on the driving licence.'}
+                      </p>
+                      <p style={{ fontSize: '0.75rem', marginTop: 4, color: 'var(--nf-dim)' }}>
+                        Entered: <strong>{result.decision.name_mismatch?.declared || result.explanation?.name_mismatch?.declared}</strong>
+                        {' · '}
+                        On document: <strong>{result.decision.name_mismatch?.extracted || result.explanation?.name_mismatch?.extracted}</strong>
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Document Verdict Summary (non-rejected) */}
                 {!result.document_rejected && result.document_verdict?.verdict && (
                   <div className={`nf-banner-verdict ${result.document_verdict.verdict.toLowerCase()}`}>

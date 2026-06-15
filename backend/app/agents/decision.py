@@ -18,9 +18,10 @@ def decision_agent(state: KYCState) -> KYCState:
 
     explanation = state.explanation
     id_mismatch = explanation.get("id_mismatch")
+    name_mismatch = explanation.get("name_mismatch")
 
-    # Wrong ID entered vs correct document must never auto-approve
-    if id_mismatch and score < 45:
+    # Wrong ID or name vs document must never auto-approve
+    if (id_mismatch or name_mismatch) and score < 45:
         score = 45
         decision = "REVIEW"
         requires_review = True
@@ -46,16 +47,23 @@ def decision_agent(state: KYCState) -> KYCState:
             "extracted":  id_mismatch["extracted"],
             "reason":     id_mismatch["short_reason"],
         } if id_mismatch else None,
+        "name_mismatch": {
+            "detected":   True,
+            "declared":   name_mismatch["declared"],
+            "extracted":  name_mismatch["extracted"],
+            "reason":     name_mismatch["short_reason"],
+        } if name_mismatch else None,
     }
     state.workflow_path.append("decision")
     log_event(
         state,
         "Decision Agent",
-        f"Decision: {decision}" + (" | ID mismatch" if id_mismatch else ""),
+        f"Decision: {decision}" + (" | ID mismatch" if id_mismatch else "") + (" | Name mismatch" if name_mismatch else ""),
         {
             "score":          score,
             "requires_review": requires_review,
             "id_mismatch":    bool(id_mismatch),
+            "name_mismatch":  bool(name_mismatch),
         },
     )
     return state
