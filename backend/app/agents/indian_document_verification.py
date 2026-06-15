@@ -840,7 +840,12 @@ def indian_document_verification_agent(state: KYCState) -> KYCState:
     evidence_ids  = state.customer_profile.get("evidence_ids", [])
     uploaded      = state.uploaded_evidence or get_evidence(evidence_ids)
     customer_name = state.customer_profile.get("name", "")
+<<<<<<< HEAD
     declared_id   = state.customer_profile.get("id_number", "")
+=======
+    # Document type the customer declared on the intake form (e.g. "PAN Card").
+    declared_doc_type = state.customer_profile.get("document_type", "")
+>>>>>>> 16747735b61a04e93825a71ffd62d65d9cf78d0d
 
     # ── Stage 1: Groq field extraction ───────────────────────────────────────
     groq_map:    dict[str, dict] = {}
@@ -995,6 +1000,7 @@ def indian_document_verification_agent(state: KYCState) -> KYCState:
                     id_mismatch["short_reason"]
                 ]
 
+<<<<<<< HEAD
     if name_mismatch:
         log.warning(
             "Name mismatch on DL: declared=%s extracted=%s",
@@ -1014,6 +1020,19 @@ def indian_document_verification_agent(state: KYCState) -> KYCState:
                 ev["validity_issues"] = list(ev.get("validity_issues", [])) + [
                     name_mismatch["short_reason"]
                 ]
+=======
+    # ── Declared vs detected document-type consistency ────────────────────────
+    from app.services.doc_type_match import check_doc_type_mismatch
+
+    doc_type_match = check_doc_type_mismatch(declared_doc_type, evaluations)
+    if doc_type_match.get("document_type_mismatch"):
+        log.warning(
+            "Document type mismatch: declared=%s detected=%s severity=%s",
+            doc_type_match["declared_doc_type"],
+            doc_type_match["detected_doc_type"],
+            doc_type_match["mismatch_severity"],
+        )
+>>>>>>> 16747735b61a04e93825a71ffd62d65d9cf78d0d
 
     # ── Aggregate ─────────────────────────────────────────────────────────────
     verdict, summary, rejection_reasons = _aggregate_verdict(evaluations)
@@ -1048,6 +1067,11 @@ def indian_document_verification_agent(state: KYCState) -> KYCState:
     state.document_verdict = {
         "verdict":                verdict,
         "summary":                summary,
+        "declared_doc_type":      declared_doc_type,
+        "detected_doc_type":      doc_type_match.get("detected_doc_type", ""),
+        "document_type_mismatch": doc_type_match.get("document_type_mismatch", False),
+        "mismatch_severity":      doc_type_match.get("mismatch_severity", "NONE"),
+        "doc_type_match":         doc_type_match,
         "rejection_reasons":      rejection_reasons,
         "verified_count":         verified_count,
         "rejected_count":         rejected_count,
@@ -1089,12 +1113,16 @@ def indian_document_verification_agent(state: KYCState) -> KYCState:
                 if rejection_reasons else ""
             )
         )
+        reject_reasons = ["Document verification failed — " + r for r in rejection_reasons[:5]]
+        if doc_type_match.get("document_type_mismatch"):
+            reject_reasons.insert(0, doc_type_match["reason"])
         state.explanation = {
             "decision_hint": "ESCALATE",
-            "reasons":       ["Document verification failed — " + r for r in rejection_reasons[:5]],
+            "reasons":       reject_reasons,
             "narrative":     narrative,
             "risk_level":    "High",
             "risk_score":    100,
+            "document_type_mismatch": doc_type_match,
         }
         state.decision = {
             "status":                "ESCALATE",

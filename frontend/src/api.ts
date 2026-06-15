@@ -6,6 +6,7 @@ export interface CustomCustomer {
   nationality: string
   occupation: string
   source_of_funds: string
+  document_type: string
   id_number: string
 }
 
@@ -44,6 +45,9 @@ export interface StepEvent {
   case_id?: string
   missing_fields?: string[]
   has_missing?: boolean
+  doc_type_mismatch?: boolean
+  declared_doc_type?: string
+  detected_doc_type?: string
 }
 
 export interface StoredCase {
@@ -209,6 +213,19 @@ export interface KYCResult {
   document_verdict?: {
     verdict: 'VERIFIED' | 'NEEDS_REVIEW' | 'REJECTED'
     summary: string
+    declared_doc_type?: string
+    detected_doc_type?: string
+    document_type_mismatch?: boolean
+    mismatch_severity?: 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH'
+    doc_type_match?: {
+      declared_doc_type: string
+      detected_doc_type: string
+      document_type_mismatch: boolean
+      mismatch_severity: 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH'
+      points: number
+      reason: string
+      short_reason: string
+    }
     rejection_reasons: string[]
     verified_count: number
     rejected_count: number
@@ -290,6 +307,7 @@ export async function runKYCStream(
   form.append('nationality', customer.nationality)
   form.append('occupation', customer.occupation)
   form.append('source_of_funds', customer.source_of_funds)
+  form.append('document_type', customer.document_type)
   form.append('id_number', customer.id_number)
   documents.forEach((f) => form.append('documents', f))
 

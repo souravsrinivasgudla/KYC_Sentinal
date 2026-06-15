@@ -15,8 +15,15 @@ import HumanReviewPanel from '../components/HumanReviewPanel'
 import EvidenceDetailSection from '../components/EvidenceDetailSection'
 import { decisionClass, decisionLabel } from '../utils/decision'
 import { collectReasons, getProfileStatus, getStatusSummary } from '../utils/profileReasons'
+import { nationalityLabel } from '../nationality'
 
-const PROFILE_KEYS = ['name', 'dob', 'nationality', 'occupation', 'source_of_funds', 'id_number']
+const PROFILE_KEYS = ['name', 'dob', 'nationality', 'occupation', 'source_of_funds', 'document_type', 'id_number']
+
+// Display labels for profile fields when the backend field_status label is absent.
+const PROFILE_LABELS: Record<string, string> = {
+  document_type: 'Document Type',
+  id_number: 'Document Number',
+}
 
 function DecisionIcon({ status }: { status: string }) {
   if (status === 'APPROVE') return <CheckCircle size={36} />
@@ -140,14 +147,15 @@ function ProfileDetailContent({
           <div className="nf-profile-grid">
             {PROFILE_KEYS.map((key) => {
               const fs = fieldStatus?.[key]
-              const val = customerProfile[key] || ''
-              const missing = fs?.status === 'missing' || (!val && key !== 'intake_confidence')
+              const rawVal = customerProfile[key] || ''
+              const val = key === 'nationality' ? nationalityLabel(rawVal) : rawVal
+              const missing = fs?.status === 'missing' || (!rawVal && key !== 'intake_confidence')
               return (
                 <div
                   key={key}
                   className={`nf-profile-field ${missing ? (fs?.required ? 'missing-required' : 'missing-optional') : ''}`}
                 >
-                  <label>{fs?.label || key.replace(/_/g, ' ')}</label>
+                  <label>{fs?.label || PROFILE_LABELS[key] || key.replace(/_/g, ' ')}</label>
                   <span className={missing ? 'missing-value' : ''}>{val || '—'}</span>
                 </div>
               )
