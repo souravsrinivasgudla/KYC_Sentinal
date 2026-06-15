@@ -20,6 +20,7 @@ import HumanReviewPanel from './components/HumanReviewPanel'
 import ProfilesPage from './pages/ProfilesPage'
 import ProfileDetailPage from './pages/ProfileDetailPage'
 import { decisionClass } from './utils/decision'
+import { nationalityLabel } from './nationality'
 
 type Tab = 'overview' | 'pipeline' | 'documents' | 'evidence' | 'audit'
 
@@ -300,8 +301,10 @@ export default function App() {
                       <div className="nf-profile-grid" style={{ marginBottom: '1.5rem' }}>
                         {PROFILE_KEYS.map((key) => {
                           const fs = fieldStatus?.[key]
-                          const val = result.customer_profile[key] || ''
-                          const missing = fs?.status === 'missing' || (!val && key !== 'intake_confidence')
+                          const rawVal = result.customer_profile[key] || ''
+                          // Show user-friendly nationality label; other fields unchanged.
+                          const val = key === 'nationality' ? nationalityLabel(rawVal) : rawVal
+                          const missing = fs?.status === 'missing' || (!rawVal && key !== 'intake_confidence')
                           return (
                             <div key={key} className={`nf-profile-field ${missing ? (fs?.required ? 'missing-required' : 'missing-optional') : ''}`}>
                               <label>{fs?.label || key.replace(/_/g, ' ')}</label>
