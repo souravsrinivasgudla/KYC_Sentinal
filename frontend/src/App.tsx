@@ -21,14 +21,21 @@ import ProfilesPage from './pages/ProfilesPage'
 import ProfileDetailPage from './pages/ProfileDetailPage'
 import { decisionClass } from './utils/decision'
 import { nationalityLabel } from './nationality'
+import { validateDocumentNumber } from './documentTypes'
 
 type Tab = 'overview' | 'pipeline' | 'documents' | 'evidence' | 'audit'
 
 const EMPTY: CustomCustomer = {
-  name: '', dob: '', nationality: '', occupation: '', source_of_funds: '', id_number: '',
+  name: '', dob: '', nationality: '', occupation: '', source_of_funds: '', document_type: '', id_number: '',
 }
 
-const PROFILE_KEYS = ['name', 'dob', 'nationality', 'occupation', 'source_of_funds', 'id_number']
+const PROFILE_KEYS = ['name', 'dob', 'nationality', 'occupation', 'source_of_funds', 'document_type', 'id_number']
+
+// Display labels for profile fields when the backend field_status label is absent.
+const PROFILE_LABELS: Record<string, string> = {
+  document_type: 'Document Type',
+  id_number: 'Document Number',
+}
 
 const RECENT_LIMIT = 10
 
@@ -95,6 +102,15 @@ export default function App() {
   const handleVerify = useCallback(async () => {
     if (!form.name.trim() || !form.dob || !form.nationality.trim() || !form.occupation.trim()) {
       setError('Please complete all required fields.')
+      return
+    }
+    if (!form.document_type.trim()) {
+      setError('Please select the document type you are submitting.')
+      return
+    }
+    const docFormatError = validateDocumentNumber(form.document_type, form.id_number)
+    if (docFormatError) {
+      setError(docFormatError)
       return
     }
     setLoading(true)
@@ -274,6 +290,32 @@ export default function App() {
                   </div>
                 )}
 
+                {/* Document type mismatch — declared vs detected */}
+                {result.document_verdict?.document_type_mismatch && (
+                  <div className="nf-banner-rejected" style={{ borderColor: 'rgba(255,165,0,0.6)', background: 'rgba(255,165,0,0.08)' }}>
+                    <AlertTriangle size={18} style={{ flexShrink: 0, color: 'var(--nf-warning)' }} />
+                    <div>
+                      <strong style={{ color: 'var(--nf-warning)' }}>
+                        Document Type Mismatch
+                        {result.document_verdict.mismatch_severity && result.document_verdict.mismatch_severity !== 'NONE' && (
+                          <span style={{ fontSize: '0.65rem', marginLeft: 6, color: 'var(--nf-dim)' }}>
+                            {result.document_verdict.mismatch_severity} severity
+                          </span>
+                        )}
+                      </strong>
+                      <p style={{ fontSize: '0.82rem', marginTop: 3 }}>
+                        {result.document_verdict.doc_type_match?.reason
+                          || 'Declared document type does not match the uploaded document.'}
+                      </p>
+                      <p style={{ fontSize: '0.75rem', marginTop: 4, color: 'var(--nf-dim)' }}>
+                        Declared: <strong>{result.document_verdict.declared_doc_type || '—'}</strong>
+                        {' · '}
+                        Detected: <strong>{result.document_verdict.detected_doc_type || '—'}</strong>
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Document Verdict Summary (non-rejected) */}
                 {!result.document_rejected && result.document_verdict?.verdict && (
                   <div className={`nf-banner-verdict ${result.document_verdict.verdict.toLowerCase()}`}>
@@ -307,7 +349,7 @@ export default function App() {
                           const missing = fs?.status === 'missing' || (!rawVal && key !== 'intake_confidence')
                           return (
                             <div key={key} className={`nf-profile-field ${missing ? (fs?.required ? 'missing-required' : 'missing-optional') : ''}`}>
-                              <label>{fs?.label || key.replace(/_/g, ' ')}</label>
+                              <label>{fs?.label || PROFILE_LABELS[key] || key.replace(/_/g, ' ')}</label>
                               <span className={missing ? 'missing-value' : ''}>{val || '—'}</span>
                             </div>
                           )
@@ -458,6 +500,27 @@ export default function App() {
 
                       {result.document_verdict ? (
                         <>
+                          {/* Declared vs Detected document type */}
+                          {(result.document_verdict.declared_doc_type || result.document_verdict.detected_doc_type) && (
+                            <div className={`nf-doctype-check ${result.document_verdict.document_type_mismatch ? 'mismatch' : 'match'}`}>
+                              <div className="nf-doctype-row">
+                                <div>
+                                  <div className="nf-doctype-label">Declared Type</div>
+                                  <div className="nf-doctype-value">{result.document_verdict.declared_doc_type || '—'}</div>
+                                </div>
+                                <div>
+                                  <div className="nf-doctype-label">Detected Type</div>
+                                  <div className="nf-doctype-value">{result.document_verdict.detected_doc_type || '—'}</div>
+                                </div>
+                              </div>
+                              <div className="nf-doctype-status">
+                                {result.document_verdict.document_type_mismatch
+                                  ? <><AlertTriangle size={14} /> Document Type Mismatch</>
+                                  : <><CheckCircle size={14} /> Document Type Verified</>}
+                              </div>
+                            </div>
+                          )}
+
                           {/* Summary stats */}
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '0.5rem', marginBottom: '1.25rem' }}>
                             {[

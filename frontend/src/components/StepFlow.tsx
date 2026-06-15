@@ -151,6 +151,16 @@ export default function StepFlow({ steps, currentStepId, isRunning }: Props) {
                     Missing: {step.missing_fields.map((f) => FIELD_LABELS[f] || f).join(', ')}
                   </div>
                 )}
+
+                {(step as any).doc_type_mismatch && (
+                  <div className="step-missing">
+                    <AlertTriangle size={12} />
+                    Declared document type does not match uploaded document.
+                    {((step as any).declared_doc_type || (step as any).detected_doc_type) && (
+                      <> ({(step as any).declared_doc_type || '—'} → {(step as any).detected_doc_type || '—'})</>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )

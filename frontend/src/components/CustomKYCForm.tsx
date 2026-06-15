@@ -3,6 +3,14 @@ import { Upload, FileCheck, X, AlertTriangle } from 'lucide-react'
 import { CustomCustomer } from '../api'
 import { toNationalityOptions } from '../nationality'
 import NationalityCombobox from './NationalityCombobox'
+import {
+  DOCUMENT_TYPES,
+  OTHER_DOC_TYPE,
+  idNumberLabel,
+  idNumberHelper,
+  sanitizeDocumentNumber,
+  validateDocumentNumber,
+} from '../documentTypes'
 
 interface Props {
   form: CustomCustomer
@@ -27,6 +35,7 @@ export default function CustomKYCForm({
 
   const [occupationSelect, setOccupationSelect] = useState('')
   const [fundsSelect, setFundsSelect] = useState('')
+  const [docTypeSelect, setDocTypeSelect] = useState('')
 
   // Map backend country codes/names to user-friendly nationality labels for
   // display. The option value stays the original code so submission/storage
@@ -48,6 +57,28 @@ export default function CustomKYCForm({
       setFundsSelect(STANDARD_FUNDS.includes(form.source_of_funds) ? form.source_of_funds : 'Other')
     }
   }, [form.source_of_funds])
+
+  useEffect(() => {
+    if (!form.document_type) {
+      setDocTypeSelect('')
+    } else if (docTypeSelect !== OTHER_DOC_TYPE) {
+      setDocTypeSelect((DOCUMENT_TYPES as readonly string[]).includes(form.document_type) ? form.document_type : OTHER_DOC_TYPE)
+    }
+  }, [form.document_type])
+
+  const handleDocTypeChange = (e: ChangeEvent<HTMLSelectElement>) => {
+    const val = e.target.value
+    setDocTypeSelect(val)
+    // Predefined type → store as-is; "Other" → clear so the user types a custom value.
+    set('document_type', val === OTHER_DOC_TYPE ? '' : val)
+  }
+
+  // The dynamic ID label/helper key off the canonical predefined type only.
+  const resolvedDocType = docTypeSelect === OTHER_DOC_TYPE ? '' : docTypeSelect
+  const idLabel = idNumberLabel(resolvedDocType)
+  const idHelp = idNumberHelper(resolvedDocType)
+  // Live format validation against the normalised value (null when valid/empty).
+  const idFormatError = validateDocumentNumber(resolvedDocType, form.id_number)
 
   const handleOccupationChange = (e: ChangeEvent<HTMLSelectElement>) => {
     const val = e.target.value
@@ -144,9 +175,36 @@ export default function CustomKYCForm({
             )}
           </div>
         </div>
-        <div className={`nf-field ${!form.id_number?.trim() ? 'nf-field-warn' : ''}`}>
-          <label>ID Number {!form.id_number?.trim() && <span className="nf-warn-tag">Missing</span>}</label>
-          <input value={form.id_number} onChange={(e) => set('id_number', e.target.value)} placeholder="Passport / National ID" />
+        <div className="nf-field">
+          <label>Document Type</label>
+          <select value={docTypeSelect} onChange={handleDocTypeChange}>
+            <option value="" disabled>Select Document Type</option>
+            {DOCUMENT_TYPES.map((d) => <option key={d} value={d}>{d}</option>)}
+            <option value={OTHER_DOC_TYPE}>{OTHER_DOC_TYPE}</option>
+          </select>
+        </div>
+        {docTypeSelect === OTHER_DOC_TYPE && (
+          <div className="nf-field">
+            <label>Specify Document Type</label>
+            <input
+              value={form.document_type}
+              onChange={(e) => set('document_type', e.target.value)}
+              placeholder="Enter document type"
+            />
+          </div>
+        )}
+        <div className={`nf-field ${idFormatError ? 'nf-field-error' : (!form.id_number?.trim() ? 'nf-field-warn' : '')}`}>
+          <label>{idLabel} {!form.id_number?.trim() && <span className="nf-warn-tag">Missing</span>}</label>
+          <input
+            value={form.id_number}
+            onChange={(e) => set('id_number', sanitizeDocumentNumber(e.target.value))}
+            placeholder={idLabel}
+            autoComplete="off"
+            spellCheck={false}
+          />
+          {idFormatError
+            ? <div className="nf-field-error-text">{idFormatError}</div>
+            : idHelp && <div className="nf-field-help">{idHelp}</div>}
         </div>
       </div>
 

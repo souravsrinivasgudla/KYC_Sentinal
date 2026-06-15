@@ -9,7 +9,9 @@ def intake_agent(state: KYCState, customer: CustomerInput) -> KYCState:
         "nationality": customer.nationality.strip(),
         "occupation": customer.occupation.strip(),
         "source_of_funds": customer.source_of_funds.strip(),
-        "id_number": customer.id_number.strip(),
+        "document_type": customer.document_type.strip(),
+        # Sanitised: no internal/edge whitespace (matches frontend sanitisation)
+        "id_number": "".join(customer.id_number.split()),
         "evidence_ids": customer.evidence_ids,
         "intake_confidence": 0.95 if customer.name and customer.dob else 0.7,
     }

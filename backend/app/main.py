@@ -135,6 +135,7 @@ async def run_kyc_stream(
     nationality: str = Form(...),
     occupation: str = Form(...),
     source_of_funds: str = Form(""),
+    document_type: str = Form(""),
     id_number: str = Form(""),
     documents: list[UploadFile] = File(default=[]),
 ):
@@ -159,6 +160,7 @@ async def run_kyc_stream(
         nationality=nationality,
         occupation=occupation,
         source_of_funds=source_of_funds,
+        document_type=document_type,
         id_number=id_number,
         evidence_ids=evidence_ids,
     )
@@ -172,6 +174,7 @@ async def run_kyc(
     nationality: str = Form(...),
     occupation: str = Form(...),
     source_of_funds: str = Form(""),
+    document_type: str = Form(""),
     id_number: str = Form(""),
     documents: list[UploadFile] = File(default=[]),
 ):
@@ -194,6 +197,7 @@ async def run_kyc(
         nationality=nationality,
         occupation=occupation,
         source_of_funds=source_of_funds,
+        document_type=document_type,
         id_number=id_number,
         evidence_ids=evidence_ids,
     )

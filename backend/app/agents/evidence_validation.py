@@ -44,6 +44,7 @@ def evidence_validation_agent(state: KYCState) -> KYCState:
             "recommendation": "review",
             "summary": "No proof documents uploaded. Manual review required.",
             "adverse_media_validated": validated_media,
+            "declared_doc_type": state.customer_profile.get("document_type", ""),
             "groq_powered": False,
             "ml_classification": {
                 "ml_used": False,
@@ -216,6 +217,7 @@ def evidence_validation_agent(state: KYCState) -> KYCState:
     state.evidence_validation = {
         **groq_result,
         "ml_classification":      ml_summary,
+        "declared_doc_type":      state.customer_profile.get("document_type", ""),
         "doc_types_detected":     ml_summary["doc_types_detected"],
         "has_proof_of_identity":  ml_summary["has_poi"],
         "has_proof_of_address":   ml_summary["has_poa"],

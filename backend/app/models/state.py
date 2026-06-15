@@ -8,6 +8,7 @@ class CustomerInput(BaseModel):
     nationality: str
     occupation: str
     source_of_funds: str = ""
+    document_type: str = ""
     id_number: str = ""
     evidence_ids: list[str] = Field(default_factory=list)
 
@@ -18,6 +19,7 @@ class CustomKYCRequest(BaseModel):
     nationality: str
     occupation: str
     source_of_funds: str = ""
+    document_type: str = ""
     id_number: str = ""
 
 

@@ -95,6 +95,9 @@ class KYCOrchestrator:
                     "has_rejection": verdict == "REJECTED",
                     "rejection_reasons": dv.get("rejection_reasons", []),
                     "verified_types": dv.get("verified_types", []),
+                    "doc_type_mismatch": dv.get("document_type_mismatch", False),
+                    "declared_doc_type": dv.get("declared_doc_type", ""),
+                    "detected_doc_type": dv.get("detected_doc_type", ""),
                 }
                 if verdict == "REJECTED":
                     msg = f"REJECTED — {dv.get('summary', 'Document verification failed')}"
@@ -103,7 +106,7 @@ class KYCOrchestrator:
                 else:
                     msg = f"VERIFIED — {dv.get('summary', '')}"
 
-            status_val = "warning" if extras.get("has_missing") or extras.get("doc_verdict") == "NEEDS_REVIEW" else "completed"
+            status_val = "warning" if extras.get("has_missing") or extras.get("doc_verdict") == "NEEDS_REVIEW" or extras.get("doc_type_mismatch") else "completed"
             if extras.get("doc_verdict") == "REJECTED":
                 status_val = "rejected"
             yield emit(step_id, name, status_val, msg, **extras)

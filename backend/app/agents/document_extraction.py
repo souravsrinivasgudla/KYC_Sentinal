@@ -4,14 +4,15 @@ from app.agents.base import log_event
 from app.models.state import KYCState
 
 REQUIRED_FIELDS = ["name", "dob", "nationality", "occupation"]
-OPTIONAL_FIELDS = ["source_of_funds", "id_number"]
+OPTIONAL_FIELDS = ["source_of_funds", "document_type", "id_number"]
 FIELD_LABELS = {
     "name": "Full Name",
     "dob": "Date of Birth",
     "nationality": "Nationality",
     "occupation": "Occupation",
     "source_of_funds": "Source of Funds",
-    "id_number": "ID Number",
+    "document_type": "Document Type",
+    "id_number": "Document Number",
 }
 
 
@@ -34,6 +35,7 @@ def document_extraction_agent(state: KYCState) -> KYCState:
         "nationality": profile.get("nationality", ""),
         "occupation": profile.get("occupation", ""),
         "source_of_funds": profile.get("source_of_funds", ""),
+        "document_type": profile.get("document_type", ""),
         "id_number": profile.get("id_number", ""),
     }
 
@@ -43,6 +45,7 @@ def document_extraction_agent(state: KYCState) -> KYCState:
         "nationality": _field_confidence(fields["nationality"]),
         "occupation": _field_confidence(fields["occupation"]),
         "source_of_funds": _field_confidence(fields["source_of_funds"]) if fields["source_of_funds"] else 0.0,
+        "document_type": _field_confidence(fields["document_type"]) if fields["document_type"] else 0.0,
         "id_number": _field_confidence(fields["id_number"]) if fields["id_number"] else 0.0,
     }
 

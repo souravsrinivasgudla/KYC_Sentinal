@@ -101,6 +101,13 @@ def explainability_agent(state: KYCState) -> KYCState:
         if not any(short.lower()[:25] in r.lower() for r in groq_reasons):
             groq_reasons.insert(0, short)
 
+    # Surface declared-vs-detected document-type mismatch
+    doc_type_match = state.document_verdict.get("doc_type_match")
+    if doc_type_match and doc_type_match.get("document_type_mismatch"):
+        dt_reason = doc_type_match.get("reason", "")
+        if dt_reason and not any(dt_reason.lower()[:30] in r.lower() for r in groq_reasons):
+            groq_reasons.insert(0, dt_reason)
+
     narrative = groq_summary or (
         f"Decision: {decision_hint}. Risk score {score}/100.\n"
         + "\n".join(f"• {r}" for r in groq_reasons)
@@ -115,6 +122,7 @@ def explainability_agent(state: KYCState) -> KYCState:
         "groq_powered": groq_powered,
         "urgency": groq_urgency,
         "id_mismatch": id_mismatch,
+        "document_type_mismatch": doc_type_match if (doc_type_match and doc_type_match.get("document_type_mismatch")) else None,
     }
 
     state.workflow_path.append("explainability")

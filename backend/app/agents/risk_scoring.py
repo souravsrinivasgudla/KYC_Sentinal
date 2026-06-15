@@ -109,6 +109,18 @@ def _rule_based_score(state: KYCState) -> tuple[int, list[dict]]:
             "detail": id_mismatch.get("short_reason", ""),
         })
 
+    # Declared vs detected document-type mismatch
+    doc_type_match = state.document_verdict.get("doc_type_match")
+    if doc_type_match and doc_type_match.get("document_type_mismatch"):
+        pts = doc_type_match.get("points", 15)
+        total += pts
+        breakdown.append({
+            "signal": "Document Type Inconsistency",
+            "points": pts,
+            "source": "doc_type_check",
+            "detail": doc_type_match.get("short_reason", ""),
+        })
+
     return min(total, 100), breakdown
 
 
