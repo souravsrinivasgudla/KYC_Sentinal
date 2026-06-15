@@ -11,12 +11,8 @@ FIELD_LABELS = {
     "nationality": "Nationality",
     "occupation": "Occupation",
     "source_of_funds": "Source of Funds",
-<<<<<<< HEAD
-    "id_number": "ID / DL Number",
-=======
     "document_type": "Document Type",
-    "id_number": "Document Number",
->>>>>>> 16747735b61a04e93825a71ffd62d65d9cf78d0d
+    "id_number": "ID / DL Number",
 }
 
 

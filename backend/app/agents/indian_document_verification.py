@@ -840,12 +840,9 @@ def indian_document_verification_agent(state: KYCState) -> KYCState:
     evidence_ids  = state.customer_profile.get("evidence_ids", [])
     uploaded      = state.uploaded_evidence or get_evidence(evidence_ids)
     customer_name = state.customer_profile.get("name", "")
-<<<<<<< HEAD
     declared_id   = state.customer_profile.get("id_number", "")
-=======
     # Document type the customer declared on the intake form (e.g. "PAN Card").
     declared_doc_type = state.customer_profile.get("document_type", "")
->>>>>>> 16747735b61a04e93825a71ffd62d65d9cf78d0d
 
     # ── Stage 1: Groq field extraction ───────────────────────────────────────
     groq_map:    dict[str, dict] = {}
@@ -1000,7 +997,6 @@ def indian_document_verification_agent(state: KYCState) -> KYCState:
                     id_mismatch["short_reason"]
                 ]
 
-<<<<<<< HEAD
     if name_mismatch:
         log.warning(
             "Name mismatch on DL: declared=%s extracted=%s",
@@ -1020,7 +1016,7 @@ def indian_document_verification_agent(state: KYCState) -> KYCState:
                 ev["validity_issues"] = list(ev.get("validity_issues", [])) + [
                     name_mismatch["short_reason"]
                 ]
-=======
+
     # ── Declared vs detected document-type consistency ────────────────────────
     from app.services.doc_type_match import check_doc_type_mismatch
 
@@ -1032,7 +1028,6 @@ def indian_document_verification_agent(state: KYCState) -> KYCState:
             doc_type_match["detected_doc_type"],
             doc_type_match["mismatch_severity"],
         )
->>>>>>> 16747735b61a04e93825a71ffd62d65d9cf78d0d
 
     # ── Aggregate ─────────────────────────────────────────────────────────────
     verdict, summary, rejection_reasons = _aggregate_verdict(evaluations)
