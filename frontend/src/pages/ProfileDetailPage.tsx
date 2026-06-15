@@ -1,0 +1,316 @@
+import { ReactNode, useEffect, useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
+import {
+  ArrowLeft,
+  CheckCircle,
+  AlertTriangle,
+  XCircle,
+  User,
+  FileText,
+  Shield,
+  Sparkles,
+} from 'lucide-react'
+import { FieldStatus, KYCResult, fetchCase } from '../api'
+import ErrorBoundary from '../components/ErrorBoundary'
+import HumanReviewPanel from '../components/HumanReviewPanel'
+import { decisionClass, decisionLabel } from '../utils/decision'
+import { collectReasons, getProfileStatus, getStatusSummary } from '../utils/profileReasons'
+
+const PROFILE_KEYS = ['name', 'dob', 'nationality', 'occupation', 'source_of_funds', 'id_number']
+
+function DecisionIcon({ status }: { status: string }) {
+  if (status === 'APPROVE') return <CheckCircle size={36} />
+  if (status === 'REVIEW') return <AlertTriangle size={36} />
+  return <XCircle size={36} />
+}
+
+function ProfileShell({
+  caseId,
+  title,
+  statusClass = '',
+  children,
+}: {
+  caseId?: string
+  title: string
+  statusClass?: string
+  children: ReactNode
+}) {
+  return (
+    <>
+      <section className={`nf-hero nf-hero-compact nf-profile-detail-hero ${statusClass}`}>
+        <div className="nf-hero-content">
+          <Link to="/profiles" className="nf-profile-back">
+            <ArrowLeft size={16} />
+            Back to Profiles
+          </Link>
+          <h1>{title}</h1>
+          {caseId && <p className="nf-profile-detail-id">{caseId}</p>}
+        </div>
+      </section>
+      <main className="nf-main nf-profile-detail nf-profile-detail-body">
+        {children}
+      </main>
+    </>
+  )
+}
+
+function ProfileDetailContent({
+  result,
+  onReviewComplete,
+}: {
+  result: KYCResult
+  onReviewComplete: (updated: KYCResult) => void
+}) {
+  const status = getProfileStatus(result)
+  const dc = decisionClass(status)
+  const decision = result.decision ?? {}
+  const risk = result.risk_assessment ?? { risk_score: 0, risk_level: 'Unknown', breakdown: [] }
+  const breakdown = risk.breakdown ?? []
+  const customerProfile = result.customer_profile ?? {}
+  const displayStatus = decision.final_status || decision.status || 'PENDING'
+  const fieldStatus = result.field_status || result.document_extraction?.field_status as Record<string, FieldStatus> | undefined
+  const reasons = collectReasons(result)
+  const summary = getStatusSummary(status, result)
+  const documentVerdict = result.document_verdict
+  const verdictClass = documentVerdict?.verdict?.toLowerCase() ?? 'unknown'
+  const pendingReview = Boolean(decision.requires_human_review && !decision.human_reviewed)
+  const officerBriefing = (result.human_review?.groq_officer_briefing as Record<string, string> | undefined)?.summary
+
+  return (
+    <>
+      {pendingReview && (
+        <HumanReviewPanel
+          caseId={result.case_id}
+          briefing={officerBriefing}
+          onComplete={onReviewComplete}
+        />
+      )}
+
+      <div className={`nf-decision-hero ${dc}`}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <DecisionIcon status={status} />
+          <div>
+            <div className="nf-decision-label">Status</div>
+            <div className="nf-decision-value">{decisionLabel(status)}</div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--nf-dim)', marginTop: 4 }}>
+              {displayStatus}
+              {decision.human_reviewed && ' · Human reviewed'}
+            </div>
+          </div>
+        </div>
+        <div
+          className="nf-score"
+          style={{
+            color: dc === 'approve' ? 'var(--nf-success)' : dc === 'review' ? 'var(--nf-warning)' : 'var(--nf-red)',
+          }}
+        >
+          {risk.risk_score ?? 0}
+        </div>
+      </div>
+
+      <div className={`nf-profile-explanation ${dc}`}>
+        <h2>Profile Summary</h2>
+        <p>{summary}</p>
+        {result.explanation?.narrative && (
+          <div className="nf-narrative">{result.explanation.narrative}</div>
+        )}
+      </div>
+
+      <div className="nf-card">
+        <h3>
+          {status === 'APPROVE' ? 'Approval Reasons' : status === 'REVIEW' ? 'Review Reasons' : 'Escalation Reasons'}
+          {decision.groq_powered && (
+            <span className="nf-profile-groq-tag">
+              <Sparkles size={12} />
+              Groq AI
+            </span>
+          )}
+        </h3>
+        <div className="nf-profile-reasons">
+          {reasons.map((r, i) => (
+            <div key={i} className={`nf-profile-reason ${r.severity}`}>
+              <span className="nf-profile-reason-label">{r.label}</span>
+              <span className="nf-profile-reason-detail">{r.detail}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="nf-grid-2 nf-profile-detail-grid">
+        <div className="nf-card">
+          <h3><User size={16} style={{ display: 'inline', marginRight: 6, verticalAlign: -2 }} />Customer Profile</h3>
+          <div className="nf-profile-grid">
+            {PROFILE_KEYS.map((key) => {
+              const fs = fieldStatus?.[key]
+              const val = customerProfile[key] || ''
+              const missing = fs?.status === 'missing' || (!val && key !== 'intake_confidence')
+              return (
+                <div
+                  key={key}
+                  className={`nf-profile-field ${missing ? (fs?.required ? 'missing-required' : 'missing-optional') : ''}`}
+                >
+                  <label>{fs?.label || key.replace(/_/g, ' ')}</label>
+                  <span className={missing ? 'missing-value' : ''}>{val || '—'}</span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        <div className="nf-card">
+          <h3><Shield size={16} style={{ display: 'inline', marginRight: 6, verticalAlign: -2 }} />Risk Assessment</h3>
+          <div className="nf-profile-risk-meta">
+            <span>Risk level: <strong>{risk.risk_level || 'Unknown'}</strong></span>
+            {risk.scoring_method && (
+              <span>
+                Method:{' '}
+                <strong>
+                  {risk.scoring_method === 'hybrid' ? 'Hybrid (XGBoost + Rules)' : 'Rule-based'}
+                </strong>
+              </span>
+            )}
+          </div>
+          {breakdown.length > 0 ? breakdown.map((b, i) => (
+            <div key={i} className={`nf-breakdown-item ${b.source === 'ml' ? 'nf-breakdown-ml' : ''}`}>
+              <span>{b.signal}</span>
+              <span className="pts">+{b.points}</span>
+            </div>
+          )) : (
+            <p style={{ fontSize: '0.85rem', color: 'var(--nf-dim)' }}>No risk breakdown available for this profile.</p>
+          )}
+        </div>
+      </div>
+
+      {documentVerdict && Object.keys(documentVerdict).length > 0 && (
+        <div className="nf-card">
+          <h3><FileText size={16} style={{ display: 'inline', marginRight: 6, verticalAlign: -2 }} />Document Verification</h3>
+          {documentVerdict.verdict && (
+            <div className={`nf-banner-verdict ${verdictClass}`} style={{ marginBottom: '1rem' }}>
+              {documentVerdict.verdict === 'VERIFIED'
+                ? <CheckCircle size={18} style={{ flexShrink: 0 }} />
+                : <AlertTriangle size={18} style={{ flexShrink: 0 }} />}
+              <div>
+                <strong>{documentVerdict.verdict}</strong>
+                {documentVerdict.summary && (
+                  <p style={{ fontSize: '0.82rem', marginTop: 3 }}>{documentVerdict.summary}</p>
+                )}
+              </div>
+            </div>
+          )}
+          {(documentVerdict.per_document?.length ?? 0) > 0 ? (
+            <div className="nf-doc-grid">
+              {documentVerdict.per_document!.map((doc, i) => (
+                <div key={i} className="nf-doc-item">
+                  <CheckCircle size={16} style={{ color: doc.verdict === 'VERIFIED' ? 'var(--nf-success)' : 'var(--nf-warning)' }} />
+                  <span>{doc.doc_type_display || doc.doc_type} — {doc.filename}</span>
+                  {doc.verdict && (
+                    <span className={`nf-profile-doc-verdict ${doc.verdict.toLowerCase()}`}>{doc.verdict}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p style={{ fontSize: '0.85rem', color: 'var(--nf-dim)' }}>No document details recorded.</p>
+          )}
+        </div>
+      )}
+
+      {(result.uploaded_evidence?.length ?? 0) > 0 && !documentVerdict && (
+        <div className="nf-card">
+          <h3><FileText size={16} style={{ display: 'inline', marginRight: 6, verticalAlign: -2 }} />Uploaded Documents</h3>
+          <div className="nf-doc-grid">
+            {result.uploaded_evidence!.map((d) => (
+              <div key={d.evidence_id} className="nf-doc-item">
+                <CheckCircle size={16} style={{ color: 'var(--nf-success)' }} />
+                <span>{d.original_filename}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {Boolean(result.groq_verification?.summary) && (
+        <div className="nf-card">
+          <h3><Sparkles size={16} style={{ display: 'inline', marginRight: 6, verticalAlign: -2 }} />Groq Profile Check</h3>
+          <p style={{ fontSize: '0.9rem', color: 'var(--nf-muted)', marginTop: '0.5rem' }}>
+            {String(result.groq_verification.summary)}
+          </p>
+        </div>
+      )}
+    </>
+  )
+}
+
+export default function ProfileDetailPage({ onRefresh }: { onRefresh?: () => void }) {
+  const { caseId: rawCaseId } = useParams<{ caseId: string }>()
+  const caseId = rawCaseId ? decodeURIComponent(rawCaseId).trim() : ''
+  const [result, setResult] = useState<KYCResult | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (!caseId) {
+      setResult(null)
+      setError('Invalid profile ID')
+      setLoading(false)
+      return
+    }
+
+    const controller = new AbortController()
+    setLoading(true)
+    setError('')
+    setResult(null)
+
+    fetchCase(caseId, controller.signal)
+      .then((data) => {
+        if (!controller.signal.aborted) setResult(data)
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return
+        setError(err instanceof Error ? err.message : 'Profile not found')
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false)
+      })
+
+    return () => controller.abort()
+  }, [caseId])
+
+  if (loading) {
+    return (
+      <ProfileShell caseId={caseId} title="Loading profile…">
+        <div className="nf-card nf-empty">
+          <p>Fetching verification data…</p>
+        </div>
+      </ProfileShell>
+    )
+  }
+
+  if (error || !result) {
+    return (
+      <ProfileShell caseId={caseId || undefined} title="Profile Not Found">
+        <div className="nf-card nf-empty">
+          <User size={40} style={{ opacity: 0.2, margin: '0 auto 1rem' }} />
+          <p>{error || 'Profile not found'}</p>
+        </div>
+      </ProfileShell>
+    )
+  }
+
+  const status = getProfileStatus(result)
+  const title = result.customer_profile?.name || 'Customer Profile'
+
+  return (
+    <ProfileShell caseId={result.case_id} title={title} statusClass={decisionClass(status)}>
+      <ErrorBoundary>
+        <ProfileDetailContent
+          result={result}
+          onReviewComplete={(updated) => {
+            setResult(updated)
+            onRefresh?.()
+          }}
+        />
+      </ErrorBoundary>
+    </ProfileShell>
+  )
+}

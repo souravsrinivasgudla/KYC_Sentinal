@@ -54,7 +54,9 @@ export interface StoredCase {
   risk_score: number
   risk_level: string
   decision: string
+  final_status?: string | null
   requires_review: boolean
+  human_reviewed: boolean
   missing_fields: string[]
 }
 
@@ -224,8 +226,8 @@ export async function fetchCases(): Promise<StoredCase[]> {
   return res.json()
 }
 
-export async function fetchCase(caseId: string): Promise<KYCResult> {
-  const res = await fetch(`${API_BASE}/cases/${caseId}`)
+export async function fetchCase(caseId: string, signal?: AbortSignal): Promise<KYCResult> {
+  const res = await fetch(`${API_BASE}/cases/${encodeURIComponent(caseId.trim())}`, { signal })
   if (!res.ok) throw new Error('Case not found')
   return res.json()
 }
