@@ -16,7 +16,7 @@ def load_dataset_manifest() -> dict:
 
 
 def load_country_risk() -> dict[str, int]:
-    df = pd.read_csv(DATA_DIR / "country_risk.csv")
+    df = pd.read_csv(DATA_DIR / "country_risk.csv", keep_default_na=False)
     return dict(zip(df["country"], df["risk_score"]))
 
 

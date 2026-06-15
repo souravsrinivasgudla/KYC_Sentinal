@@ -1,6 +1,8 @@
-import { FormEvent, useRef } from 'react'
+import { FormEvent, useRef, useState, useEffect, ChangeEvent, useMemo } from 'react'
 import { Upload, FileCheck, X, AlertTriangle } from 'lucide-react'
 import { CustomCustomer } from '../api'
+import { toNationalityOptions } from '../nationality'
+import NationalityCombobox from './NationalityCombobox'
 
 interface Props {
   form: CustomCustomer
@@ -15,12 +17,57 @@ interface Props {
 
 const OPTIONAL: (keyof CustomCustomer)[] = ['source_of_funds', 'id_number']
 const ACCEPT = '.pdf,.txt,.jpg,.jpeg,.png,.webp'
+const STANDARD_FUNDS = ["Salary", "Business Revenue", "Savings", "Investments", "Inheritance", "Gifts"]
 
 export default function CustomKYCForm({
   form, countries, occupations, documents, onChange, onDocumentsChange, onSubmit, loading,
 }: Props) {
   const fileRef = useRef<HTMLInputElement>(null)
   const set = (field: keyof CustomCustomer, value: string) => onChange({ ...form, [field]: value })
+
+  const [occupationSelect, setOccupationSelect] = useState('')
+  const [fundsSelect, setFundsSelect] = useState('')
+
+  // Map backend country codes/names to user-friendly nationality labels for
+  // display. The option value stays the original code so submission/storage
+  // are unaffected.
+  const nationalityOptions = useMemo(() => toNationalityOptions(countries), [countries])
+
+  useEffect(() => {
+    if (!form.occupation) {
+      setOccupationSelect('')
+    } else if (occupationSelect !== 'Other') {
+      setOccupationSelect(occupations.includes(form.occupation) ? form.occupation : 'Other')
+    }
+  }, [form.occupation, occupations])
+
+  useEffect(() => {
+    if (!form.source_of_funds) {
+      setFundsSelect('')
+    } else if (fundsSelect !== 'Other') {
+      setFundsSelect(STANDARD_FUNDS.includes(form.source_of_funds) ? form.source_of_funds : 'Other')
+    }
+  }, [form.source_of_funds])
+
+  const handleOccupationChange = (e: ChangeEvent<HTMLSelectElement>) => {
+    const val = e.target.value
+    setOccupationSelect(val)
+    if (val === 'Other') {
+      set('occupation', '')
+    } else {
+      set('occupation', val)
+    }
+  }
+
+  const handleFundsChange = (e: ChangeEvent<HTMLSelectElement>) => {
+    const val = e.target.value
+    setFundsSelect(val)
+    if (val === 'Other') {
+      set('source_of_funds', '')
+    } else {
+      set('source_of_funds', val)
+    }
+  }
 
   const handleFiles = (files: FileList | null) => {
     if (!files) return
@@ -44,17 +91,58 @@ export default function CustomKYCForm({
         </div>
         <div className="nf-field">
           <label>Nationality *</label>
-          <input list="countries" value={form.nationality} onChange={(e) => set('nationality', e.target.value)} placeholder="Country" required />
-          <datalist id="countries">{countries.map((c) => <option key={c} value={c} />)}</datalist>
+          <NationalityCombobox
+            value={form.nationality}
+            options={nationalityOptions}
+            onChange={(v) => set('nationality', v)}
+            required
+          />
         </div>
         <div className="nf-field">
           <label>Occupation *</label>
-          <input list="occupations" value={form.occupation} onChange={(e) => set('occupation', e.target.value)} placeholder="Occupation" required />
-          <datalist id="occupations">{occupations.map((o) => <option key={o} value={o} />)}</datalist>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <select
+              value={occupationSelect}
+              onChange={handleOccupationChange}
+              required
+              style={{ flex: 1 }}
+            >
+              <option value="" disabled>Select Occupation</option>
+              {occupations.map((o) => <option key={o} value={o}>{o}</option>)}
+              <option value="Other">Other</option>
+            </select>
+            {occupationSelect === 'Other' && (
+              <input
+                value={form.occupation}
+                onChange={(e) => set('occupation', e.target.value)}
+                placeholder="Enter occupation"
+                required
+                style={{ flex: 1 }}
+              />
+            )}
+          </div>
         </div>
         <div className={`nf-field ${!form.source_of_funds?.trim() ? 'nf-field-warn' : ''}`}>
           <label>Source of Funds {!form.source_of_funds?.trim() && <span className="nf-warn-tag">Missing</span>}</label>
-          <input value={form.source_of_funds} onChange={(e) => set('source_of_funds', e.target.value)} placeholder="Salary, business revenue..." />
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <select
+              value={fundsSelect}
+              onChange={handleFundsChange}
+              style={{ flex: 1 }}
+            >
+              <option value="">Select Source of Funds</option>
+              {STANDARD_FUNDS.map((f) => <option key={f} value={f}>{f}</option>)}
+              <option value="Other">Other</option>
+            </select>
+            {fundsSelect === 'Other' && (
+              <input
+                value={form.source_of_funds}
+                onChange={(e) => set('source_of_funds', e.target.value)}
+                placeholder="Enter source of funds"
+                style={{ flex: 1 }}
+              />
+            )}
+          </div>
         </div>
         <div className={`nf-field ${!form.id_number?.trim() ? 'nf-field-warn' : ''}`}>
           <label>ID Number {!form.id_number?.trim() && <span className="nf-warn-tag">Missing</span>}</label>
