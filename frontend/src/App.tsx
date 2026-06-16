@@ -11,7 +11,6 @@ import {
   fetchOccupations,
   fetchCases,
   runKYCStream,
-  checkHealth,
 } from './api'
 import CustomKYCForm from './components/CustomKYCForm'
 import StepFlow from './components/StepFlow'
@@ -80,7 +79,6 @@ export default function App() {
   const [currentStepId, setCurrentStepId] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [tab, setTab] = useState<Tab>('overview')
-  const [groqOk, setGroqOk] = useState(false)
   const [navScrolled, setNavScrolled] = useState(false)
 
   const refreshHistory = useCallback(() => {
@@ -90,7 +88,6 @@ export default function App() {
   useEffect(() => {
     fetchCountries().then(setCountries).catch(() => {})
     fetchOccupations().then(setOccupations).catch(() => {})
-    checkHealth().then((h) => setGroqOk(h.groq_configured)).catch(() => {})
     refreshHistory()
     const onScroll = () => setNavScrolled(window.scrollY > 40)
     window.addEventListener('scroll', onScroll)
@@ -165,7 +162,7 @@ export default function App() {
 
   return (
     <>
-      <NavBar groqOk={groqOk} navScrolled={navScrolled} />
+      <NavBar navScrolled={navScrolled} />
 
       <Routes>
         <Route
