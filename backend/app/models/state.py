@@ -57,3 +57,27 @@ class KYCState(BaseModel):
     human_review: dict[str, Any] = Field(default_factory=dict)
     audit_log: list[AgentEvent] = Field(default_factory=list)
     workflow_path: list[str] = Field(default_factory=list)
+    # Phase 1 parallel execution metadata
+    parallel_execution: bool = False
+    agent_timings: list[dict[str, Any]] = Field(default_factory=list)
+    parallel_errors: list[dict[str, Any]] = Field(default_factory=list)
+    # Phase 2 confidence framework (separate from risk; never affects decisions)
+    overall_confidence: float = 0.0
+    agent_confidences: dict[str, float] = Field(default_factory=dict)
+    confidence_summary: str = ""
+    # Phase 3 risk contribution breakdown (explainability only; never changes score)
+    risk_contributions: list[dict[str, Any]] = Field(default_factory=list)
+    top_risk_drivers: list[dict[str, Any]] = Field(default_factory=list)
+    risk_breakdown_summary: str = ""
+    # Phase 4 enhanced due diligence (adaptive investigation; never changes decision)
+    edd_triggered: bool = False
+    edd_reasons: list[str] = Field(default_factory=list)
+    edd_findings: list[str] = Field(default_factory=list)
+    edd_summary: str = ""
+    # Phase 5 cross-signal consistency analysis (advisory only; never changes decision)
+    consistency_issues: list[dict[str, Any]] = Field(default_factory=list)
+    consistency_summary: str = ""
+    consistency_score: float = 1.0
+    # Phase 6 compliance investigation copilot (read-only; never changes decision)
+    executive_summary: str = ""
+    copilot_queries: list[dict[str, Any]] = Field(default_factory=list)

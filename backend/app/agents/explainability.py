@@ -140,6 +140,46 @@ def explainability_agent(state: KYCState) -> KYCState:
         + "\n".join(f"• {r}" for r in groq_reasons)
     )
 
+    # ── Confidence commentary (Phase 2) — appended, never replaces existing text ─
+    from app.services.confidence import confidence_band
+
+    overall_conf = state.overall_confidence
+    band = confidence_band(overall_conf)
+    confidence_commentary = {
+        "High": "The verification outcome is supported by high-confidence document analysis and screening results.",
+        "Moderate": "The verification outcome is supported by moderate-confidence evidence and may benefit from manual review.",
+        "Low": "The verification outcome relies on lower-confidence signals and should be reviewed carefully.",
+    }[band]
+    narrative = f"{narrative}\n\n{confidence_commentary}"
+
+    # ── Risk driver commentary (Phase 3) — appended, never replaces ─────────────
+    risk_drivers_commentary = ""
+    drivers = state.top_risk_drivers or state.risk_contributions[:2]
+    if drivers:
+        def _fmt(d):
+            imp = d.get("impact", 0)
+            return f"{d.get('factor')} ({'+' if imp >= 0 else ''}{imp})"
+        top2 = drivers[:2]
+        joined = " and ".join(_fmt(d) for d in top2)
+        risk_drivers_commentary = f"The primary risk drivers were {joined}."
+        narrative = f"{narrative}\n\n{risk_drivers_commentary}"
+
+    # ── EDD commentary (Phase 4) — appended, never replaces ─────────────────────
+    edd_commentary = ""
+    if state.edd_triggered:
+        edd_commentary = "Enhanced Due Diligence was performed due to elevated risk indicators."
+        if state.edd_summary:
+            edd_commentary = f"{edd_commentary} {state.edd_summary}"
+        narrative = f"{narrative}\n\n{edd_commentary}"
+
+    # ── Consistency commentary (Phase 5) — appended, never replaces ─────────────
+    consistency_commentary = ""
+    if state.consistency_issues:
+        consistency_commentary = state.consistency_summary or (
+            "Profile consistency analysis identified cross-signal discrepancies."
+        )
+        narrative = f"{narrative}\n\n{consistency_commentary}"
+
     state.explanation = {
         "decision_hint": decision_hint,
         "reasons": groq_reasons,
@@ -151,6 +191,14 @@ def explainability_agent(state: KYCState) -> KYCState:
         "id_mismatch": id_mismatch,
         "name_mismatch": name_mismatch,
         "document_type_mismatch": doc_type_match if (doc_type_match and doc_type_match.get("document_type_mismatch")) else None,
+        "confidence_commentary": confidence_commentary,
+        "overall_confidence": overall_conf,
+        "risk_drivers_commentary": risk_drivers_commentary,
+        "top_risk_drivers": state.top_risk_drivers,
+        "edd_commentary": edd_commentary,
+        "edd_triggered": state.edd_triggered,
+        "consistency_commentary": consistency_commentary,
+        "consistency_score": state.consistency_score,
     }
 
     state.workflow_path.append("explainability")
