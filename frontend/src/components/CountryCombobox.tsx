@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDown, Search } from 'lucide-react'
-import { nationalityLabel } from '../nationality'
+import { countryLabel } from '../country'
 
 interface Option {
   value: string
@@ -17,21 +17,21 @@ interface Props {
 }
 
 /**
- * Type-ahead nationality selector. The user types to filter the list by
- * nationality label or code; selecting an option stores its original `value`
- * (code) so submission/storage stay unchanged. Free text is allowed for
- * nationalities not in the list (the previous "Other" behaviour).
+ * Type-ahead country selector. The user types to filter the list by country
+ * name or code; selecting an option stores its original `value` (code/name) so
+ * submission/storage stay unchanged. Free text is allowed for countries not in
+ * the list.
  */
-export default function NationalityCombobox({
-  value, options, onChange, required, placeholder = 'Search nationality…',
+export default function CountryCombobox({
+  value, options, onChange, required, placeholder = 'Search country…',
 }: Props) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const [highlight, setHighlight] = useState(0)
   const wrapRef = useRef<HTMLDivElement>(null)
 
-  // Display label for the currently stored value (label if known, else raw value).
-  const displayValue = value ? nationalityLabel(value) : ''
+  // Display label for the currently stored value (name if known, else raw value).
+  const displayValue = value ? countryLabel(value) : ''
 
   // When closed, the input mirrors the selected value's label. While open the
   // input holds the live search query.
@@ -83,8 +83,8 @@ export default function NationalityCombobox({
     setQuery(text)
     setHighlight(0)
     if (!open) setOpen(true)
-    // Treat typed text as a free-text value too, so unmatched nationalities
-    // (the old "Other") are still captured even without selecting an option.
+    // Treat typed text as a free-text value too, so unmatched countries are
+    // still captured even without selecting an option.
     onChange(text)
   }
 

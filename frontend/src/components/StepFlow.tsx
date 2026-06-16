@@ -12,7 +12,7 @@ const FIELD_LABELS: Record<string, string> = {
   id_number: 'ID Number',
   name: 'Full Name',
   dob: 'Date of Birth',
-  nationality: 'Nationality',
+  nationality: 'Country',
   occupation: 'Occupation',
 }
 
@@ -31,7 +31,13 @@ const STEP_ORDER = [
   'adverse_media',
   'evidence_validation',
   'financial_profiling',
+  'confidence',
   'risk_scoring',
+  'edd_trigger',
+  'enhanced_due_diligence',
+  'edd_summary',
+  'consistency',
+  'risk_breakdown',
   'explainability',
   'decision',
   'human_review',
@@ -56,7 +62,8 @@ function StepIcon({ status }: { status: StepEvent['status'] | 'rejected' }) {
 }
 
 function isOrchestratorEvent(step: StepEvent) {
-  return step.step_id === 'orchestrator' && step.step_name === 'Orchestrator Agent'
+  // Main orchestrator events plus parallel-phase notes (orchestrator_parallel_*).
+  return step.step_id === 'orchestrator' || step.step_id.startsWith('orchestrator_')
 }
 
 export default function StepFlow({ steps, currentStepId, isRunning }: Props) {

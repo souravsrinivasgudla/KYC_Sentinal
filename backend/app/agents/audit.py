@@ -37,6 +37,30 @@ def audit_report_agent(state: KYCState) -> KYCState:
         "workflow_path": state.workflow_path,
         "agent_timeline": [e.model_dump() for e in state.audit_log],
         "evidence_collected": _collect_evidence(state),
+        # Phase 1 — concurrent execution metadata
+        "parallel_execution": state.parallel_execution,
+        "agent_timings": state.agent_timings,
+        "parallel_errors": state.parallel_errors,
+        # Phase 2 — confidence framework (separate from risk)
+        "overall_confidence": state.overall_confidence,
+        "agent_confidences": state.agent_confidences,
+        "confidence_summary": state.confidence_summary,
+        # Phase 3 — risk contribution breakdown (explainability only)
+        "risk_contributions": state.risk_contributions,
+        "top_risk_drivers": state.top_risk_drivers,
+        "risk_breakdown_summary": state.risk_breakdown_summary,
+        # Phase 4 — enhanced due diligence (adaptive investigation)
+        "edd_triggered": state.edd_triggered,
+        "edd_reasons": state.edd_reasons,
+        "edd_findings": state.edd_findings,
+        "edd_summary": state.edd_summary,
+        # Phase 5 — cross-signal consistency analysis (advisory only)
+        "consistency_score": state.consistency_score,
+        "consistency_summary": state.consistency_summary,
+        "consistency_issues": state.consistency_issues,
+        # Phase 6 — compliance copilot (executive summary + question log; no answers stored)
+        "executive_summary": state.executive_summary,
+        "copilot_queries": state.copilot_queries,
     }
 
     state.decision["audit_report"] = report

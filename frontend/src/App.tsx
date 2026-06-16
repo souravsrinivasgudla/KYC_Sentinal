@@ -11,10 +11,10 @@ import {
   fetchOccupations,
   fetchCases,
   runKYCStream,
-  checkHealth,
 } from './api'
 import CustomKYCForm from './components/CustomKYCForm'
 import StepFlow from './components/StepFlow'
+import CopilotPanel from './components/CopilotPanel'
 import NavBar from './components/NavBar'
 import HumanReviewPanel from './components/HumanReviewPanel'
 import ProfilesPage from './pages/ProfilesPage'
@@ -22,10 +22,28 @@ import ProfileDetailPage from './pages/ProfileDetailPage'
 import DashboardPage from './pages/DashboardPage'
 import AboutPage from './pages/AboutPage'
 import { decisionClass } from './utils/decision'
-import { nationalityLabel } from './nationality'
+import { countryLabel } from './country'
 import { validateDocumentNumber } from './documentTypes'
+import {
+  AGENT_CONFIDENCE_LABELS,
+  AGENT_CONFIDENCE_ORDER,
+  confidenceBand,
+  confidenceExplanation,
+  confidenceIcon,
+  confidenceLabel,
+  confidencePct,
+  hasConfidence,
+} from './utils/confidence'
+import { formatImpact, impactBarWidth, maxAbsImpact } from './utils/riskBreakdown'
+import {
+  consistencyBand,
+  consistencyIcon,
+  consistencyLabel,
+  consistencyPct,
+  sortBySeverity,
+} from './utils/consistency'
 
-type Tab = 'overview' | 'pipeline' | 'documents' | 'evidence' | 'audit'
+type Tab = 'overview' | 'pipeline' | 'documents' | 'evidence' | 'audit' | 'copilot'
 
 const EMPTY: CustomCustomer = {
   name: '', dob: '', nationality: '', occupation: '', source_of_funds: '', document_type: '', id_number: '',
@@ -35,6 +53,7 @@ const PROFILE_KEYS = ['name', 'dob', 'nationality', 'occupation', 'source_of_fun
 
 // Display labels for profile fields when the backend field_status label is absent.
 const PROFILE_LABELS: Record<string, string> = {
+  nationality: 'Country',
   document_type: 'Document Type',
   id_number: 'Document Number',
 }
@@ -60,7 +79,6 @@ export default function App() {
   const [currentStepId, setCurrentStepId] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [tab, setTab] = useState<Tab>('overview')
-  const [groqOk, setGroqOk] = useState(false)
   const [navScrolled, setNavScrolled] = useState(false)
 
   const refreshHistory = useCallback(() => {
@@ -70,7 +88,6 @@ export default function App() {
   useEffect(() => {
     fetchCountries().then(setCountries).catch(() => {})
     fetchOccupations().then(setOccupations).catch(() => {})
-    checkHealth().then((h) => setGroqOk(h.groq_configured)).catch(() => {})
     refreshHistory()
     const onScroll = () => setNavScrolled(window.scrollY > 40)
     window.addEventListener('scroll', onScroll)
@@ -145,7 +162,7 @@ export default function App() {
 
   return (
     <>
-      <NavBar groqOk={groqOk} navScrolled={navScrolled} />
+      <NavBar navScrolled={navScrolled} />
 
       <Routes>
         <Route
@@ -246,6 +263,97 @@ export default function App() {
                     {result.risk_assessment.risk_score}
                   </div>
                 </div>
+
+                {/* Overall confidence card (Part 5) — separate from risk */}
+                {hasConfidence(result.overall_confidence) && (() => {
+                  const band = confidenceBand(result.overall_confidence)
+                  return (
+                    <div className={`nf-confidence-card ${band}`}>
+                      <div className="nf-confidence-head">
+                        <span className="nf-confidence-label">Overall Confidence</span>
+                        <span className="nf-confidence-pct">{confidencePct(result.overall_confidence)}%</span>
+                      </div>
+                      <div className="nf-confidence-bar">
+                        <div className="nf-confidence-fill" style={{ width: `${confidencePct(result.overall_confidence)}%` }} />
+                      </div>
+                      <div className="nf-confidence-status">
+                        {confidenceIcon(band)} {confidenceLabel(band)}
+                      </div>
+                      <p className="nf-confidence-explain">
+                        {result.confidence_summary || confidenceExplanation(band)}
+                      </p>
+                    </div>
+                  )
+                })()}
+
+                {/* Top Risk Drivers (Part 7) — readable at a glance near the decision */}
+                {(result.top_risk_drivers?.length ?? 0) > 0 && (
+                  <div className="nf-top-drivers">
+                    <div className="nf-top-drivers-title">Top Risk Drivers</div>
+                    <ol className="nf-top-drivers-list">
+                      {result.top_risk_drivers!.map((d, i) => (
+                        <li key={i}>
+                          <span>{d.factor}</span>
+                          <span className="nf-top-drivers-impact">{formatImpact(d.impact)}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
+
+                {/* Enhanced Due Diligence card (Part 8) — only when triggered */}
+                {result.edd_triggered && (
+                  <div className="nf-edd-card">
+                    <div className="nf-edd-title">
+                      <AlertTriangle size={16} /> Enhanced Due Diligence
+                    </div>
+                    {(result.edd_reasons?.length ?? 0) > 0 && (
+                      <div className="nf-edd-section">
+                        <span className="nf-edd-label">Triggered by</span>
+                        <ul>{result.edd_reasons!.map((r, i) => <li key={i}>{r}</li>)}</ul>
+                      </div>
+                    )}
+                    {(result.edd_findings?.length ?? 0) > 0 && (
+                      <div className="nf-edd-section">
+                        <span className="nf-edd-label">Findings</span>
+                        <ul>{result.edd_findings!.map((f, i) => <li key={i}>{f}</li>)}</ul>
+                      </div>
+                    )}
+                    {result.edd_summary && (
+                      <p className="nf-edd-summary">{result.edd_summary}</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Profile Consistency card + findings (Parts 7 & 8) */}
+                {result.consistency_summary && (() => {
+                  const band = consistencyBand(result.consistency_score)
+                  const issues = sortBySeverity(result.consistency_issues || [])
+                  return (
+                    <div className={`nf-consistency-card ${band}`}>
+                      <div className="nf-consistency-head">
+                        <span className="nf-consistency-label">Profile Consistency</span>
+                        <span className="nf-consistency-pct">{consistencyPct(result.consistency_score)}%</span>
+                      </div>
+                      <div className="nf-consistency-status">
+                        {consistencyIcon(band)} {consistencyLabel(band)}
+                        {issues.length > 0 && (
+                          <span className="nf-consistency-count">{issues.length} issue{issues.length !== 1 ? 's' : ''}</span>
+                        )}
+                      </div>
+                      {issues.length > 0 && (
+                        <div className="nf-consistency-findings">
+                          {issues.map((iss, i) => (
+                            <div key={i} className={`nf-consistency-finding ${iss.severity}`}>
+                              <span className={`nf-consistency-sev ${iss.severity}`}>{iss.severity.toUpperCase()}</span>
+                              <span>{iss.description}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })()}
 
                 {result.missing_fields && result.missing_fields.length > 0 && (
                   <div className="nf-banner-warn">
@@ -359,9 +467,9 @@ export default function App() {
                 )}
                 <div className="nf-card">
                   <div className="nf-tabs">
-                    {(['overview', 'pipeline', 'documents', 'evidence', 'audit'] as Tab[]).map((t) => (
+                    {(['overview', 'pipeline', 'documents', 'evidence', 'audit', 'copilot'] as Tab[]).map((t) => (
                       <button key={t} className={`nf-tab ${tab === t ? 'active' : ''}`} onClick={() => setTab(t)}>
-                        {t === 'documents' ? '🪪 Documents' : t.charAt(0).toUpperCase() + t.slice(1)}
+                        {t === 'documents' ? '🪪 Documents' : t === 'copilot' ? '💬 Copilot' : t.charAt(0).toUpperCase() + t.slice(1)}
                       </button>
                     ))}
                   </div>
@@ -373,12 +481,12 @@ export default function App() {
                         {PROFILE_KEYS.map((key) => {
                           const fs = fieldStatus?.[key]
                           const rawVal = result.customer_profile[key] || ''
-                          // Show user-friendly nationality label; other fields unchanged.
-                          const val = key === 'nationality' ? nationalityLabel(rawVal) : rawVal
+                          // Show the full country name; other fields unchanged.
+                          const val = key === 'nationality' ? countryLabel(rawVal) : rawVal
                           const missing = fs?.status === 'missing' || (!rawVal && key !== 'intake_confidence')
                           return (
                             <div key={key} className={`nf-profile-field ${missing ? (fs?.required ? 'missing-required' : 'missing-optional') : ''}`}>
-                              <label>{fs?.label || PROFILE_LABELS[key] || key.replace(/_/g, ' ')}</label>
+                              <label>{PROFILE_LABELS[key] || fs?.label || key.replace(/_/g, ' ')}</label>
                               <span className={missing ? 'missing-value' : ''}>{val || '—'}</span>
                             </div>
                           )
@@ -441,6 +549,56 @@ export default function App() {
                           </div>
                         </div>
                       )}
+
+                      {/* Verification Confidence Breakdown (Part 6) */}
+                      {result.agent_confidences && Object.keys(result.agent_confidences).length > 0 && (
+                        <>
+                          <h3 style={{ marginTop: '1.5rem' }}>Verification Confidence Breakdown</h3>
+                          {AGENT_CONFIDENCE_ORDER
+                            .filter((key) => hasConfidence(result.agent_confidences?.[key]))
+                            .map((key) => {
+                              const val = result.agent_confidences![key]
+                              return (
+                                <div key={key} style={{ margin: '0.5rem 0' }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: 3 }}>
+                                    <span>{AGENT_CONFIDENCE_LABELS[key] || key}</span>
+                                    <span style={{ color: 'var(--nf-muted)' }}>{confidencePct(val)}%</span>
+                                  </div>
+                                  <div className="nf-score-bar">
+                                    <div className="nf-score-fill" style={{ width: `${confidencePct(val)}%` }} />
+                                  </div>
+                                </div>
+                              )
+                            })}
+                        </>
+                      )}
+
+                      {/* Risk Contribution Breakdown (Parts 5 & 6) — bars, descending */}
+                      {(result.risk_contributions?.length ?? 0) > 0 && (() => {
+                        const contribs = result.risk_contributions!
+                        const max = maxAbsImpact(contribs)
+                        return (
+                          <>
+                            <h3 style={{ marginTop: '1.5rem' }}>Risk Contribution Breakdown</h3>
+                            {contribs.map((c, i) => (
+                              <div key={i} style={{ margin: '0.5rem 0' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: 3 }}>
+                                  <span>{c.factor}</span>
+                                  <span className="pts" style={{ color: c.impact >= 0 ? 'var(--nf-red)' : 'var(--nf-success)' }}>
+                                    {formatImpact(c.impact)}
+                                  </span>
+                                </div>
+                                <div className="nf-score-bar">
+                                  <div
+                                    className="nf-score-fill"
+                                    style={{ width: `${impactBarWidth(c.impact, max)}%`, background: c.impact >= 0 ? 'var(--nf-red)' : 'var(--nf-success)' }}
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                          </>
+                        )
+                      })()}
 
                       <div className="nf-narrative" style={{ marginTop: '1rem' }}>{result.explanation.narrative}</div>
 
@@ -947,12 +1105,21 @@ export default function App() {
                       {JSON.stringify(result.decision.audit_report, null, 2)}
                     </pre>
                   )}
+
+                  {tab === 'copilot' && (
+                    <CopilotPanel caseId={result.case_id} result={result} />
+                  )}
                 </div>
 
                 {result.decision.requires_human_review && !result.decision.human_reviewed && (
                   <HumanReviewPanel
                     caseId={result.case_id}
                     briefing={String((result.human_review?.groq_officer_briefing as Record<string, string> | undefined)?.summary || '') || undefined}
+                    confidence={result.overall_confidence}
+                    topRiskDrivers={result.top_risk_drivers}
+                    eddSummary={result.edd_triggered ? result.edd_summary : undefined}
+                    consistencyIssues={result.consistency_issues}
+                    onAskCopilot={() => setTab('copilot')}
                     onComplete={handleReview}
                   />
                 )}
