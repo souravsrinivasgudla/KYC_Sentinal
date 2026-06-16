@@ -15,12 +15,27 @@ import ErrorBoundary from '../components/ErrorBoundary'
 import HumanReviewPanel from '../components/HumanReviewPanel'
 import { decisionClass, decisionLabel } from '../utils/decision'
 import { collectReasons, getProfileStatus, getStatusSummary } from '../utils/profileReasons'
-import { nationalityLabel } from '../nationality'
+import { countryLabel } from '../country'
+import {
+  confidenceBand,
+  confidenceIcon,
+  confidenceLabel,
+  confidencePct,
+  hasConfidence,
+} from '../utils/confidence'
+import {
+  consistencyBand,
+  consistencyIcon,
+  consistencyLabel,
+  consistencyPct,
+  sortBySeverity,
+} from '../utils/consistency'
 
 const PROFILE_KEYS = ['name', 'dob', 'nationality', 'occupation', 'source_of_funds', 'document_type', 'id_number']
 
 // Display labels for profile fields when the backend field_status label is absent.
 const PROFILE_LABELS: Record<string, string> = {
+  nationality: 'Country',
   document_type: 'Document Type',
   id_number: 'Document Number',
 }
@@ -89,6 +104,10 @@ function ProfileDetailContent({
         <HumanReviewPanel
           caseId={result.case_id}
           briefing={officerBriefing}
+          confidence={result.overall_confidence}
+          topRiskDrivers={result.top_risk_drivers}
+          eddSummary={result.edd_triggered ? result.edd_summary : undefined}
+          consistencyIssues={result.consistency_issues}
           onComplete={onReviewComplete}
         />
       )}
@@ -143,6 +162,56 @@ function ProfileDetailContent({
         </div>
       </div>
 
+      {result.edd_triggered && (
+        <div className="nf-card nf-edd-card">
+          <div className="nf-edd-title">
+            <AlertTriangle size={16} /> Enhanced Due Diligence
+          </div>
+          {(result.edd_reasons?.length ?? 0) > 0 && (
+            <div className="nf-edd-section">
+              <span className="nf-edd-label">Triggered by</span>
+              <ul>{result.edd_reasons!.map((r, i) => <li key={i}>{r}</li>)}</ul>
+            </div>
+          )}
+          {(result.edd_findings?.length ?? 0) > 0 && (
+            <div className="nf-edd-section">
+              <span className="nf-edd-label">Findings</span>
+              <ul>{result.edd_findings!.map((f, i) => <li key={i}>{f}</li>)}</ul>
+            </div>
+          )}
+          {result.edd_summary && <p className="nf-edd-summary">{result.edd_summary}</p>}
+        </div>
+      )}
+
+      {result.consistency_summary && (() => {
+        const band = consistencyBand(result.consistency_score)
+        const issues = sortBySeverity(result.consistency_issues || [])
+        return (
+          <div className={`nf-card nf-consistency-card ${band}`}>
+            <div className="nf-consistency-head">
+              <span className="nf-consistency-label">Profile Consistency</span>
+              <span className="nf-consistency-pct">{consistencyPct(result.consistency_score)}%</span>
+            </div>
+            <div className="nf-consistency-status">
+              {consistencyIcon(band)} {consistencyLabel(band)}
+              {issues.length > 0 && (
+                <span className="nf-consistency-count">{issues.length} issue{issues.length !== 1 ? 's' : ''}</span>
+              )}
+            </div>
+            {issues.length > 0 && (
+              <div className="nf-consistency-findings">
+                {issues.map((iss, i) => (
+                  <div key={i} className={`nf-consistency-finding ${iss.severity}`}>
+                    <span className={`nf-consistency-sev ${iss.severity}`}>{iss.severity.toUpperCase()}</span>
+                    <span>{iss.description}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      })()}
+
       <div className="nf-grid-2 nf-profile-detail-grid">
         <div className="nf-card">
           <h3><User size={16} style={{ display: 'inline', marginRight: 6, verticalAlign: -2 }} />Customer Profile</h3>
@@ -150,14 +219,14 @@ function ProfileDetailContent({
             {PROFILE_KEYS.map((key) => {
               const fs = fieldStatus?.[key]
               const rawVal = customerProfile[key] || ''
-              const val = key === 'nationality' ? nationalityLabel(rawVal) : rawVal
+              const val = key === 'nationality' ? countryLabel(rawVal) : rawVal
               const missing = fs?.status === 'missing' || (!rawVal && key !== 'intake_confidence')
               return (
                 <div
                   key={key}
                   className={`nf-profile-field ${missing ? (fs?.required ? 'missing-required' : 'missing-optional') : ''}`}
                 >
-                  <label>{fs?.label || PROFILE_LABELS[key] || key.replace(/_/g, ' ')}</label>
+                  <label>{PROFILE_LABELS[key] || fs?.label || key.replace(/_/g, ' ')}</label>
                   <span className={missing ? 'missing-value' : ''}>{val || '—'}</span>
                 </div>
               )
@@ -177,6 +246,15 @@ function ProfileDetailContent({
                 </strong>
               </span>
             )}
+            {hasConfidence(result.overall_confidence) && (() => {
+              const band = confidenceBand(result.overall_confidence)
+              return (
+                <span>
+                  Confidence:{' '}
+                  <strong>{confidenceIcon(band)} {confidencePct(result.overall_confidence)}% · {confidenceLabel(band)}</strong>
+                </span>
+              )
+            })()}
           </div>
           {breakdown.length > 0 ? breakdown.map((b, i) => (
             <div key={i} className={`nf-breakdown-item ${b.source === 'ml' ? 'nf-breakdown-ml' : ''}`}>

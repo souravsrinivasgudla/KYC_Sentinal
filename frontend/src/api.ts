@@ -10,6 +10,18 @@ export interface CustomCustomer {
   id_number: string
 }
 
+export interface RiskContribution {
+  factor: string
+  impact: number
+  category?: string
+}
+
+export interface ConsistencyIssue {
+  type: string
+  severity: 'low' | 'medium' | 'high'
+  description: string
+}
+
 export interface AgentEvent {
   agent: string
   action: string
@@ -40,7 +52,7 @@ export interface StepEvent {
   step_id: string
   step_name: string
   step_index: number
-  status: 'pending' | 'running' | 'completed' | 'skipped' | 'warning' | 'rejected'
+  status: 'pending' | 'running' | 'completed' | 'skipped' | 'warning' | 'rejected' | 'info'
   message: string
   case_id?: string
   missing_fields?: string[]
@@ -62,6 +74,10 @@ export interface StoredCase {
   requires_review: boolean
   human_reviewed: boolean
   missing_fields: string[]
+  overall_confidence?: number
+  top_risk_drivers?: RiskContribution[]
+  edd_triggered?: boolean
+  consistency_score?: number
 }
 
 export interface UploadedEvidence {
@@ -148,6 +164,14 @@ export interface KYCResult {
     narrative: string
     groq_powered?: boolean
     urgency?: string
+    confidence_commentary?: string
+    overall_confidence?: number
+    risk_drivers_commentary?: string
+    top_risk_drivers?: RiskContribution[]
+    edd_commentary?: string
+    edd_triggered?: boolean
+    consistency_commentary?: string
+    consistency_score?: number
     id_mismatch?: {
       declared: string
       extracted: string
@@ -179,6 +203,26 @@ export interface KYCResult {
   audit_log: AgentEvent[]
   workflow_path: string[]
   agent_status: AgentStatus[]
+  // Phase 2 — confidence framework (optional; safe defaults for legacy cases)
+  overall_confidence?: number
+  agent_confidences?: Record<string, number>
+  confidence_summary?: string
+  // Phase 3 — risk contribution breakdown (optional; safe defaults for legacy cases)
+  risk_contributions?: RiskContribution[]
+  top_risk_drivers?: RiskContribution[]
+  risk_breakdown_summary?: string
+  // Phase 4 — enhanced due diligence (optional; safe defaults for legacy cases)
+  edd_triggered?: boolean
+  edd_reasons?: string[]
+  edd_findings?: string[]
+  edd_summary?: string
+  // Phase 5 — cross-signal consistency analysis (optional; safe defaults for legacy cases)
+  consistency_score?: number
+  consistency_summary?: string
+  consistency_issues?: ConsistencyIssue[]
+  // Phase 6 — compliance investigation copilot (optional; safe defaults for legacy cases)
+  executive_summary?: string
+  copilot_context?: Record<string, unknown>
   missing_fields?: string[]
   field_status?: Record<string, FieldStatus>
   document_rejected?: boolean
@@ -323,6 +367,19 @@ export async function submitReview(
     body: JSON.stringify({ case_id: caseId, action, comment, reviewer }),
   })
   if (!res.ok) throw new Error('Review submission failed')
+  return res.json()
+}
+
+export async function askCopilot(
+  caseId: string,
+  question: string,
+): Promise<{ answer: string; source: string }> {
+  const res = await fetch(`${API_BASE}/cases/${caseId}/copilot`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ question }),
+  })
+  if (!res.ok) throw new Error('Copilot request failed')
   return res.json()
 }
 

@@ -10,9 +10,16 @@ AGENT_REGISTRY = [
     {"id": "adverse_media",                   "name": "Adverse Media Agent",                    "phase": "screening",  "description": "Analyzes negative news and regulatory notices"},
     {"id": "evidence_validation",             "name": "Evidence Validation Agent",              "phase": "screening",  "description": "Groq-powered semantic document content validation"},
     {"id": "financial_profiling",             "name": "Financial Profiling Agent",              "phase": "risk",       "description": "Assesses occupation, funds, and country risk"},
+    {"id": "confidence",                      "name": "Confidence Agent",                       "phase": "confidence", "description": "Aggregates verification confidence across agents"},
     {"id": "risk_scoring",                    "name": "Risk Scoring Agent",                     "phase": "risk",       "description": "Aggregates all risk signals into a score (XGBoost + rules)"},
+    {"id": "edd_trigger",                     "name": "EDD Trigger Agent",                      "phase": "edd",        "description": "Evaluates whether Enhanced Due Diligence is required"},
+    {"id": "enhanced_due_diligence",          "name": "Enhanced Due Diligence Agent",           "phase": "edd",        "description": "Deeper investigation of high-risk profiles (conditional)"},
+    {"id": "edd_summary",                     "name": "EDD Summary Agent",                      "phase": "edd",        "description": "Summarizes enhanced due diligence findings (conditional)"},
+    {"id": "consistency",                     "name": "Consistency Agent",                      "phase": "consistency","description": "Detects cross-signal contradictions in the profile"},
+    {"id": "risk_breakdown",                  "name": "Risk Breakdown Agent",                   "phase": "risk",       "description": "Decomposes the risk score into per-factor contributions"},
     {"id": "explainability",                  "name": "Explainability Agent",                   "phase": "decision",   "description": "Generates human-readable reasoning"},
     {"id": "decision",                        "name": "Decision Agent",                         "phase": "decision",   "description": "Produces APPROVE / REVIEW / ESCALATE"},
+    {"id": "copilot",                         "name": "Compliance Copilot Agent",               "phase": "decision",   "description": "Generates an investigation-ready executive summary"},
     {"id": "human_review",                    "name": "Human Review Agent",                     "phase": "review",     "description": "Compliance officer intervention"},
     {"id": "audit_report",                    "name": "Audit Report Agent",                     "phase": "audit",      "description": "Generates auditable decision report"},
 ]
@@ -30,6 +37,7 @@ def build_agent_status(audit_log: list, workflow_path: list[str]) -> list[dict]:
         conditional = agent["id"] in (
             "evidence_validation", "human_review",
             "entity_resolution_deep", "entity_resolution_pep",
+            "enhanced_due_diligence", "edd_summary",
         )
         status_list.append(
             {

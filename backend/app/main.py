@@ -25,10 +25,14 @@ from app.services.vector_store import vector_store
 
 
 def _enrich_response(state: KYCState) -> dict:
+    from app.services.copilot import build_case_context
+
     data = state.model_dump()
     data["agent_status"] = build_agent_status(state.audit_log, state.workflow_path)
     data["missing_fields"] = state.document_extraction.get("fields_missing", [])
     data["field_status"] = state.document_extraction.get("field_status", {})
+    # Phase 6 — copilot context built dynamically (no DB migration)
+    data["copilot_context"] = build_case_context(state)
     return data
 
 
@@ -239,5 +243,31 @@ def get_audit_report(case_id: str):
     if not report:
         raise HTTPException(status_code=404, detail="Audit report not found")
     return report
+
+
+@app.post("/api/cases/{case_id}/copilot")
+def ask_copilot(case_id: str, body: dict):
+    """Read-only investigation Q&A. Logs the question (not the answer) for audit."""
+    from datetime import datetime, timezone
+    from app.services.copilot import answer_question
+
+    state = get_case(case_id)
+    if not state:
+        raise HTTPException(status_code=404, detail="Case not found")
+
+    question = (body or {}).get("question", "").strip()
+    if not question:
+        raise HTTPException(status_code=400, detail="A question is required")
+
+    result = answer_question(state, question)
+
+    # Part 11 — log the question + timestamp (never the answer); does not alter findings.
+    state.copilot_queries.append({
+        "question": question,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    })
+    save_case(state, source="copilot")
+
+    return {"answer": result["answer"], "source": result["source"]}
 
 # Trigger reload comment to force uvicorn refresh

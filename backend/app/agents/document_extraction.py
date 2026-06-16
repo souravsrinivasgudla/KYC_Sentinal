@@ -8,7 +8,7 @@ OPTIONAL_FIELDS = ["source_of_funds", "document_type", "id_number"]
 FIELD_LABELS = {
     "name": "Full Name",
     "dob": "Date of Birth",
-    "nationality": "Nationality",
+    "nationality": "Country",
     "occupation": "Occupation",
     "source_of_funds": "Source of Funds",
     "document_type": "Document Type",

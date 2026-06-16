@@ -1,8 +1,8 @@
 import { FormEvent, useRef, useState, useEffect, ChangeEvent, useMemo } from 'react'
 import { Upload, FileCheck, X, AlertTriangle } from 'lucide-react'
 import { CustomCustomer } from '../api'
-import { toNationalityOptions } from '../nationality'
-import NationalityCombobox from './NationalityCombobox'
+import { toCountryOptions } from '../country'
+import CountryCombobox from './CountryCombobox'
 import {
   DOCUMENT_TYPES,
   OTHER_DOC_TYPE,
@@ -37,10 +37,9 @@ export default function CustomKYCForm({
   const [fundsSelect, setFundsSelect] = useState('')
   const [docTypeSelect, setDocTypeSelect] = useState('')
 
-  // Map backend country codes/names to user-friendly nationality labels for
-  // display. The option value stays the original code so submission/storage
-  // are unaffected.
-  const nationalityOptions = useMemo(() => toNationalityOptions(countries), [countries])
+  // Map backend country codes/names to full country names for display. The
+  // option value stays the original code so submission/storage are unaffected.
+  const countryOptions = useMemo(() => toCountryOptions(countries), [countries])
 
   useEffect(() => {
     if (!form.occupation) {
@@ -121,11 +120,11 @@ export default function CustomKYCForm({
           <input type="date" value={form.dob} onChange={(e) => set('dob', e.target.value)} required />
         </div>
         <div className="nf-field">
-          <label>Nationality *</label>
-          <NationalityCombobox
+          <label>Country *</label>
+          <CountryCombobox
             value={form.nationality}
-            options={nationalityOptions}
-            onChange={(v) => set('nationality', v)}
+            options={countryOptions}
+            onChange={(v: string) => set('nationality', v)}
             required
           />
         </div>

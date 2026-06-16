@@ -93,6 +93,10 @@ def list_cases() -> list[dict]:
                 "requires_review": state.decision.get("requires_human_review", False),
                 "human_reviewed": state.decision.get("human_reviewed", False),
                 "missing_fields": state.document_extraction.get("fields_missing", []),
+                "overall_confidence": state.overall_confidence,
+                "top_risk_drivers": state.top_risk_drivers,
+                "edd_triggered": state.edd_triggered,
+                "consistency_score": state.consistency_score,
             }
         )
     return results

@@ -275,6 +275,444 @@ body {
   line-height: 1.3;
 }
 
+/* ── Confidence card (Overview, Part 5) ── */
+.nf-confidence-card {
+  background: var(--nf-card);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-left: 3px solid var(--nf-dim);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.nf-confidence-card.high { border-left-color: var(--nf-success); }
+.nf-confidence-card.moderate { border-left-color: var(--nf-warning); }
+.nf-confidence-card.low { border-left-color: var(--nf-red); }
+
+.nf-confidence-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.nf-confidence-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--nf-dim);
+}
+
+.nf-confidence-pct { font-size: 1.6rem; font-weight: 700; color: var(--nf-text); }
+
+.nf-confidence-bar {
+  height: 6px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.nf-confidence-fill { height: 100%; border-radius: 3px; background: var(--nf-dim); }
+.nf-confidence-card.high .nf-confidence-fill { background: var(--nf-success); }
+.nf-confidence-card.moderate .nf-confidence-fill { background: var(--nf-warning); }
+.nf-confidence-card.low .nf-confidence-fill { background: var(--nf-red); }
+
+.nf-confidence-status { font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem; }
+.nf-confidence-card.high .nf-confidence-status { color: var(--nf-success); }
+.nf-confidence-card.moderate .nf-confidence-status { color: var(--nf-warning); }
+.nf-confidence-card.low .nf-confidence-status { color: var(--nf-red); }
+
+.nf-confidence-explain { font-size: 0.8rem; color: var(--nf-muted); line-height: 1.4; }
+
+/* ── Compliance Copilot (Phase 6) ── */
+.nf-copilot { display: flex; flex-direction: column; gap: 1rem; }
+
+.nf-copilot-summary {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+}
+
+.nf-copilot-summary-title {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--nf-dim);
+  margin-bottom: 0.75rem;
+}
+
+.nf-copilot-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.75rem;
+}
+
+.nf-copilot-summary-grid > div { display: flex; flex-direction: column; gap: 2px; }
+.nf-copilot-k { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--nf-dim); }
+.nf-copilot-v { font-size: 0.9rem; font-weight: 600; color: var(--nf-text); }
+
+.nf-copilot-drivers { margin-top: 0.75rem; }
+.nf-copilot-drivers ul { margin: 0.25rem 0 0; padding-left: 1.1rem; }
+.nf-copilot-drivers li { font-size: 0.82rem; color: var(--nf-muted); padding: 0.1rem 0; }
+
+.nf-copilot-exec {
+  font-size: 0.82rem;
+  color: var(--nf-muted);
+  line-height: 1.45;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+.nf-copilot-chat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-height: 180px;
+  max-height: 340px;
+  overflow-y: auto;
+  padding: 0.5rem 0;
+}
+
+.nf-copilot-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  text-align: center;
+  color: var(--nf-dim);
+  font-size: 0.85rem;
+  padding: 1.5rem 1rem;
+}
+
+.nf-copilot-msg { display: flex; gap: 0.6rem; align-items: flex-start; }
+.nf-copilot-msg.user { flex-direction: row-reverse; }
+
+.nf-copilot-msg-icon {
+  flex-shrink: 0;
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,0.06);
+  color: var(--nf-muted);
+}
+.nf-copilot-msg.assistant .nf-copilot-msg-icon { color: var(--nf-red); }
+
+.nf-copilot-msg-body {
+  max-width: 80%;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  padding: 0.6rem 0.85rem;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.05);
+  color: var(--nf-text);
+}
+.nf-copilot-msg.user .nf-copilot-msg-body { background: rgba(229,9,20,0.15); }
+
+.nf-copilot-suggested { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+
+.nf-copilot-chip {
+  font-size: 0.72rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.04);
+  color: var(--nf-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.nf-copilot-chip:hover:not(:disabled) { border-color: var(--nf-red); color: var(--nf-text); }
+.nf-copilot-chip:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.nf-copilot-input { display: flex; gap: 0.5rem; }
+.nf-copilot-input input {
+  flex: 1;
+  padding: 0.65rem 0.9rem;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px;
+  color: var(--nf-text);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+}
+.nf-copilot-input input:focus { outline: none; border-color: var(--nf-red); }
+
+.nf-copilot-send {
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 0.9rem;
+  background: var(--nf-red);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.nf-copilot-send:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.nf-review-copilot-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  color: var(--nf-red);
+  background: rgba(229,9,20,0.08);
+  border: 1px solid rgba(229,9,20,0.3);
+  border-radius: 5px;
+  padding: 0.35rem 0.7rem;
+  margin: 0.25rem 0 0.5rem;
+  cursor: pointer;
+}
+.nf-review-copilot-btn:hover { background: rgba(229,9,20,0.16); }
+
+/* ── Profile Consistency card (Phase 5) ── */
+.nf-consistency-card {
+  background: var(--nf-card);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-left: 3px solid var(--nf-success);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.nf-consistency-card.minor { border-left-color: var(--nf-warning); }
+.nf-consistency-card.significant { border-left-color: var(--nf-red); }
+
+.nf-consistency-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 0.3rem;
+}
+
+.nf-consistency-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--nf-dim);
+}
+
+.nf-consistency-pct { font-size: 1.4rem; font-weight: 700; color: var(--nf-text); }
+
+.nf-consistency-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.nf-consistency-card.consistent .nf-consistency-status { color: var(--nf-success); }
+.nf-consistency-card.minor .nf-consistency-status { color: var(--nf-warning); }
+.nf-consistency-card.significant .nf-consistency-status { color: var(--nf-red); }
+
+.nf-consistency-count {
+  font-size: 0.65rem;
+  color: var(--nf-dim);
+  background: rgba(255,255,255,0.06);
+  border-radius: 10px;
+  padding: 0.1rem 0.5rem;
+}
+
+.nf-consistency-findings { display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.5rem; }
+
+.nf-consistency-finding {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  color: var(--nf-muted);
+  padding: 0.4rem 0.5rem;
+  background: rgba(255,255,255,0.03);
+  border-radius: 4px;
+}
+
+.nf-consistency-sev {
+  flex-shrink: 0;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+}
+
+.nf-consistency-sev.low { background: rgba(128,128,128,0.2); color: var(--nf-muted); }
+.nf-consistency-sev.medium { background: rgba(232,163,23,0.2); color: var(--nf-warning); }
+.nf-consistency-sev.high { background: rgba(229,9,20,0.2); color: var(--nf-red); }
+
+/* Consistency findings inside the Human Review panel */
+.nf-review-consistency {
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px;
+  padding: 0.6rem 0.75rem;
+  margin: 0.5rem 0 0.75rem;
+  background: rgba(255,255,255,0.03);
+}
+
+.nf-review-consistency-title {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--nf-dim);
+  margin-bottom: 0.35rem;
+}
+
+.nf-review-consistency ul { list-style: none; margin: 0; padding: 0; }
+
+.nf-review-consistency li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--nf-muted);
+  padding: 0.2rem 0;
+}
+
+/* ── Enhanced Due Diligence card (Phase 4) ── */
+.nf-edd-card {
+  background: var(--nf-card);
+  border: 1px solid rgba(232,163,23,0.35);
+  border-left: 3px solid var(--nf-warning);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.nf-edd-title {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--nf-warning);
+  margin-bottom: 0.6rem;
+}
+
+.nf-edd-section { margin-bottom: 0.6rem; }
+
+.nf-edd-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--nf-dim);
+}
+
+.nf-edd-section ul { margin: 0.25rem 0 0; padding-left: 1.1rem; }
+.nf-edd-section li { font-size: 0.82rem; color: var(--nf-muted); padding: 0.1rem 0; }
+
+.nf-edd-summary {
+  font-size: 0.82rem;
+  color: var(--nf-text);
+  line-height: 1.45;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+/* EDD briefing inside the Human Review panel */
+.nf-review-edd {
+  border: 1px solid rgba(232,163,23,0.4);
+  border-radius: 6px;
+  padding: 0.6rem 0.75rem;
+  margin: 0.5rem 0 0.75rem;
+  background: rgba(232,163,23,0.06);
+}
+
+.nf-review-edd-title {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--nf-warning);
+  font-weight: 700;
+  margin-bottom: 0.3rem;
+}
+
+.nf-review-edd p { font-size: 0.8rem; color: var(--nf-muted); line-height: 1.4; }
+
+/* ── Top Risk Drivers (near decision summary) ── */
+.nf-top-drivers {
+  background: var(--nf-card);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-left: 3px solid var(--nf-red);
+  border-radius: 8px;
+  padding: 0.85rem 1.1rem;
+  margin-bottom: 1rem;
+}
+
+.nf-top-drivers-title {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--nf-dim);
+  margin-bottom: 0.5rem;
+}
+
+.nf-top-drivers-list { margin: 0; padding-left: 1.2rem; }
+
+.nf-top-drivers-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.85rem;
+  padding: 0.15rem 0;
+}
+
+.nf-top-drivers-impact { color: var(--nf-red); font-weight: 700; flex-shrink: 0; }
+
+/* Top Risk Drivers inside the Human Review panel */
+.nf-review-drivers {
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px;
+  padding: 0.6rem 0.75rem;
+  margin: 0.5rem 0 0.75rem;
+  background: rgba(255,255,255,0.03);
+}
+
+.nf-review-drivers-title {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--nf-dim);
+  margin-bottom: 0.35rem;
+}
+
+.nf-review-drivers ul { list-style: none; margin: 0; padding: 0; }
+
+.nf-review-drivers li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.8rem;
+  padding: 0.15rem 0;
+}
+
+.nf-review-drivers-impact { color: var(--nf-red); font-weight: 700; }
+
+/* Confidence block inside the Human Review panel (Part 7) */
+.nf-review-confidence {
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px;
+  padding: 0.6rem 0.75rem;
+  margin: 0.5rem 0 0.75rem;
+  background: rgba(255,255,255,0.03);
+}
+
+.nf-review-confidence.high { border-color: rgba(70,211,105,0.4); }
+.nf-review-confidence.moderate { border-color: rgba(232,163,23,0.4); }
+.nf-review-confidence.low { border-color: rgba(229,9,20,0.4); }
+
+.nf-review-confidence-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.78rem;
+  color: var(--nf-muted);
+}
+
+.nf-review-confidence-guidance { font-size: 0.78rem; color: var(--nf-dim); margin-top: 0.3rem; }
+
 /* ── Declared vs detected document-type check (Documents tab) ── */
 .nf-doctype-check {
   border-radius: 8px;

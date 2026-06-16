@@ -1,10 +1,13 @@
 import json
+import logging
 import re
 from typing import Any
 
 import httpx
 
 from app.config import settings
+
+log = logging.getLogger(__name__)
 
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
@@ -34,18 +37,24 @@ def groq_chat(system: str, user: str, temperature: float = 0.1) -> dict[str, Any
         "response_format": {"type": "json_object"},
     }
 
-    with httpx.Client(timeout=60.0) as client:
-        resp = client.post(
-            GROQ_URL,
-            headers={
-                "Authorization": f"Bearer {settings.groq_api_key}",
-                "Content-Type": "application/json",
-            },
-            json=payload,
-        )
-        resp.raise_for_status()
-        content = resp.json()["choices"][0]["message"]["content"]
-        return _parse_json_response(content)
+    # Resilient: a Groq failure (bad key / 401 / timeout / rate limit) must never
+    # crash or stall the KYC pipeline — degrade to a fallback so callers continue.
+    try:
+        with httpx.Client(timeout=30.0) as client:
+            resp = client.post(
+                GROQ_URL,
+                headers={
+                    "Authorization": f"Bearer {settings.groq_api_key}",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+            )
+            resp.raise_for_status()
+            content = resp.json()["choices"][0]["message"]["content"]
+            return _parse_json_response(content)
+    except Exception as exc:  # noqa: BLE001 — Groq must be non-fatal to the pipeline
+        log.warning("Groq chat failed (%s) — using fallback", exc)
+        return {"error": str(exc), "fallback": True}
 
 
 # Vision model used for image analysis (Groq Llama 4 Scout supports vision)
@@ -93,18 +102,22 @@ def groq_vision_chat(
         "response_format": {"type": "json_object"},
     }
 
-    with httpx.Client(timeout=90.0) as client:
-        resp = client.post(
-            GROQ_URL,
-            headers={
-                "Authorization": f"Bearer {settings.groq_api_key}",
-                "Content-Type": "application/json",
-            },
-            json=payload,
-        )
-        resp.raise_for_status()
-        content = resp.json()["choices"][0]["message"]["content"]
-        return _parse_json_response(content)
+    try:
+        with httpx.Client(timeout=90.0) as client:
+            resp = client.post(
+                GROQ_URL,
+                headers={
+                    "Authorization": f"Bearer {settings.groq_api_key}",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+            )
+            resp.raise_for_status()
+            content = resp.json()["choices"][0]["message"]["content"]
+            return _parse_json_response(content)
+    except Exception as exc:  # noqa: BLE001 — Groq must be non-fatal to the pipeline
+        log.warning("Groq vision chat failed (%s) — using fallback", exc)
+        return {"error": str(exc), "fallback": True}
 
 
 def extract_fields_from_image(
