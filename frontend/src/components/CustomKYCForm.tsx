@@ -1,5 +1,5 @@
 import { FormEvent, useRef, useState, useEffect, ChangeEvent, useMemo } from 'react'
-import { Upload, FileCheck, X, AlertTriangle } from 'lucide-react'
+import { Upload, FileCheck, X, AlertTriangle, Calendar } from 'lucide-react'
 import { CustomCustomer } from '../api'
 import { toNationalityOptions } from '../nationality'
 import NationalityCombobox from './NationalityCombobox'
@@ -118,7 +118,16 @@ export default function CustomKYCForm({
         </div>
         <div className="nf-field">
           <label>Date of Birth *</label>
-          <input type="date" value={form.dob} onChange={(e) => set('dob', e.target.value)} required />
+          <div className="nf-date-wrap">
+            <input
+              type="date"
+              className="nf-date-input"
+              value={form.dob}
+              onChange={(e) => set('dob', e.target.value)}
+              required
+            />
+            <Calendar size={18} className="nf-date-icon" aria-hidden />
+          </div>
         </div>
         <div className="nf-field">
           <label>Nationality *</label>
@@ -175,15 +184,6 @@ export default function CustomKYCForm({
             )}
           </div>
         </div>
-<<<<<<< HEAD
-        <div className={`nf-field ${!form.id_number?.trim() ? 'nf-field-warn' : ''}`}>
-          <label>ID / DL Number {!form.id_number?.trim() && <span className="nf-warn-tag">Missing</span>}</label>
-          <input
-            value={form.id_number}
-            onChange={(e) => set('id_number', e.target.value)}
-            placeholder="DL No. as on licence, PAN, Aadhaar, or Passport"
-          />
-=======
         <div className="nf-field">
           <label>Document Type</label>
           <select value={docTypeSelect} onChange={handleDocTypeChange}>
@@ -214,7 +214,6 @@ export default function CustomKYCForm({
           {idFormatError
             ? <div className="nf-field-error-text">{idFormatError}</div>
             : idHelp && <div className="nf-field-help">{idHelp}</div>}
->>>>>>> 16747735b61a04e93825a71ffd62d65d9cf78d0d
         </div>
       </div>
 

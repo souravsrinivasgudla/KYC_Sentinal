@@ -19,6 +19,7 @@ import NavBar from './components/NavBar'
 import HumanReviewPanel from './components/HumanReviewPanel'
 import ProfilesPage from './pages/ProfilesPage'
 import ProfileDetailPage from './pages/ProfileDetailPage'
+import DashboardPage from './pages/DashboardPage'
 import { decisionClass } from './utils/decision'
 import { nationalityLabel } from './nationality'
 import { validateDocumentNumber } from './documentTypes'
@@ -149,6 +150,10 @@ export default function App() {
         <Route
           path="/profiles/:caseId"
           element={<ProfileDetailPage onRefresh={refreshHistory} />}
+        />
+        <Route
+          path="/dashboard"
+          element={<DashboardPage />}
         />
         <Route
           path="/profiles"
@@ -290,7 +295,6 @@ export default function App() {
                   </div>
                 )}
 
-<<<<<<< HEAD
                 {(result.decision.name_mismatch?.detected || result.document_verdict?.name_mismatch || result.explanation?.name_mismatch) && (
                   <div className="nf-banner-rejected" style={{ borderColor: 'rgba(255,165,0,0.6)', background: 'rgba(255,165,0,0.08)' }}>
                     <AlertTriangle size={18} style={{ flexShrink: 0, color: 'var(--nf-warning)' }} />
@@ -305,7 +309,11 @@ export default function App() {
                         Entered: <strong>{result.decision.name_mismatch?.declared || result.explanation?.name_mismatch?.declared}</strong>
                         {' · '}
                         On document: <strong>{result.decision.name_mismatch?.extracted || result.explanation?.name_mismatch?.extracted}</strong>
-=======
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Document type mismatch — declared vs detected */}
                 {result.document_verdict?.document_type_mismatch && (
                   <div className="nf-banner-rejected" style={{ borderColor: 'rgba(255,165,0,0.6)', background: 'rgba(255,165,0,0.08)' }}>
@@ -327,7 +335,6 @@ export default function App() {
                         Declared: <strong>{result.document_verdict.declared_doc_type || '—'}</strong>
                         {' · '}
                         Detected: <strong>{result.document_verdict.detected_doc_type || '—'}</strong>
->>>>>>> 16747735b61a04e93825a71ffd62d65d9cf78d0d
                       </p>
                     </div>
                   </div>
