@@ -20,6 +20,7 @@ import HumanReviewPanel from './components/HumanReviewPanel'
 import ProfilesPage from './pages/ProfilesPage'
 import ProfileDetailPage from './pages/ProfileDetailPage'
 import DashboardPage from './pages/DashboardPage'
+import AboutPage from './pages/AboutPage'
 import { decisionClass } from './utils/decision'
 import { nationalityLabel } from './nationality'
 import { validateDocumentNumber } from './documentTypes'
@@ -154,6 +155,10 @@ export default function App() {
         <Route
           path="/dashboard"
           element={<DashboardPage />}
+        />
+        <Route
+          path="/about"
+          element={<AboutPage />}
         />
         <Route
           path="/profiles"
@@ -785,7 +790,7 @@ export default function App() {
                           <div style={{ marginBottom: '1.5rem' }}>
                             <h3>🤖 Indian KYC Document Verification (ML + Vision)</h3>
                             <p style={{ fontSize: '0.82rem', color: 'var(--nf-muted)', margin: '0.5rem 0 1rem' }}>
-                              Groq Vision + HuggingFace OpenCV QR + XGBoost · Aadhaar · PAN · Passport · Voter ID · Driving Licence · Bank Passbook
+                              Groq Vision + HuggingFace OpenCV QR + XGBoost · Aadhaar · PAN · Passport · Voter ID · Driving Licence
                             </p>
 
                             {/* POI / POA badges */}

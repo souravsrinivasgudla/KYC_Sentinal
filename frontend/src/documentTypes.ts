@@ -5,16 +5,14 @@
 //   • the helper text under the field      (idNumberHelper)
 // and the raw document number is always sanitised (no spaces) before storage.
 
-// Document types the classifier model is actually trained on (must stay in
-// sync with backend doc_classifier.DOC_TYPES). Only these can be verified and
-// compared against the uploaded document, so the dropdown lists only these.
+// Document types accepted for KYC verification (must stay in sync with backend
+// ACCEPTED_DOC_TYPES in indian_document_verification.py).
 export const DOCUMENT_TYPES = [
   'Aadhaar Card',
   'PAN Card',
   'Passport',
   'Voter ID',
   'Driving Licence',
-  'Bank Passbook',
 ] as const
 
 export const OTHER_DOC_TYPE = 'Other'

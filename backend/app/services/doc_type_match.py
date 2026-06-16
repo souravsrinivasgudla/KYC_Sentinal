@@ -22,7 +22,6 @@ DECLARED_TO_KEY: dict[str, str] = {
     "voter id (epic)": "voter_id",
     "driving licence": "driving_licence",
     "driving license": "driving_licence",
-    "bank passbook": "bank_passbook",
 }
 
 # Classifier doc_type key → display label
@@ -32,7 +31,6 @@ KEY_TO_DISPLAY: dict[str, str] = {
     "passport": "Passport",
     "voter_id": "Voter ID",
     "driving_licence": "Driving Licence",
-    "bank_passbook": "Bank Passbook",
     "unknown": "Unrecognised Document",
 }
 
