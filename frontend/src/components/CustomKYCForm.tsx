@@ -1,5 +1,5 @@
 import { FormEvent, useRef, useState, useEffect, ChangeEvent, useMemo } from 'react'
-import { Upload, FileCheck, X, AlertTriangle } from 'lucide-react'
+import { Upload, FileCheck, X, AlertTriangle, Calendar } from 'lucide-react'
 import { CustomCustomer } from '../api'
 import { toNationalityOptions } from '../nationality'
 import NationalityCombobox from './NationalityCombobox'
@@ -118,7 +118,16 @@ export default function CustomKYCForm({
         </div>
         <div className="nf-field">
           <label>Date of Birth *</label>
-          <input type="date" value={form.dob} onChange={(e) => set('dob', e.target.value)} required />
+          <div className="nf-date-wrap">
+            <input
+              type="date"
+              className="nf-date-input"
+              value={form.dob}
+              onChange={(e) => set('dob', e.target.value)}
+              required
+            />
+            <Calendar size={18} className="nf-date-icon" aria-hidden />
+          </div>
         </div>
         <div className="nf-field">
           <label>Nationality *</label>

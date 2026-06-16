@@ -129,17 +129,28 @@ def extract_fields_from_image(
         "You can read Indian government-issued identity documents from images. "
         "Supported document types: Aadhaar Card (UIDAI), PAN Card (Income Tax Dept), "
         "Indian Passport (MEA), Voter ID / EPIC (Election Commission), "
-        "Driving Licence (RTO), Bank Passbook. "
+        "Driving Licence (RTO). "
         "Extract ALL visible text and structured fields from the image. "
         "Respond ONLY with valid JSON."
     )
 
     customer_name = customer_profile.get("name", "")
     customer_dob  = customer_profile.get("dob", "")
+    customer_id   = customer_profile.get("id_number", "")
+    customer_doc  = customer_profile.get("document_type", "")
 
     prompt = f"""Customer declared name: {customer_name}
 Customer declared DOB: {customer_dob}
+Customer declared document type: {customer_doc}
+Customer declared ID / account number (must match document): {customer_id}
 Filename: {filename}
+
+IMPORTANT — Driving Licence:
+  document_number MUST be the exact value beside "DL No", "DL No.", "Licence No",
+  or "License No" on the licence (e.g. AP43720240003089, TN01 20190012345).
+  full_name MUST be the licence holder name as printed on the document.
+  Set name_matches true only when the declared customer name matches that holder name.
+  NEVER use a date or "Valid Till" / "Date of Issue" value as document_number.
 
 IMPORTANT DOB MATCHING RULE:
   Many Indian documents (especially Aadhaar) only print the year of birth,
@@ -157,12 +168,12 @@ Return JSON with this exact structure:
   "documents": [
     {{
       "filename": "{filename}",
-      "detected_doc_type": "aadhaar_card|pan_card|passport|voter_id|driving_licence|bank_passbook|unknown",
+      "detected_doc_type": "aadhaar_card|pan_card|passport|voter_id|driving_licence|unknown",
       "extracted_fields": {{
         "full_name": "name as printed on document or null",
         "date_of_birth": "DD/MM/YYYY or null",
         "gender": "M/F/Other or null",
-        "document_number": "the primary ID number (Aadhaar=12 digits, PAN=AAAAA9999A, Passport=A1234567, etc.) or null",
+        "document_number": "primary ID on document — for driving_licence use DL No/Licence No only (e.g. AP43720240003089) or null",
         "expiry_date": "DD/MM/YYYY or null",
         "address": "full address string or null",
         "father_name": "father/spouse name or null",
@@ -179,6 +190,7 @@ Return JSON with this exact structure:
       "profile_match": {{
         "name_matches": true/false/null,
         "dob_matches": true/false/null,
+        "id_number_matches": true/false/null,
         "name_similarity": 0.0-1.0,
         "mismatch_details": []
       }},
@@ -376,7 +388,7 @@ def extract_fields_from_document(
         "Your task is to extract all structured fields from Indian government-issued "
         "identity and address proof documents. "
         "Supported document types: Aadhaar Card, PAN Card, Passport, Voter ID (EPIC), "
-        "Driving Licence, Bank Passbook. "
+        "Driving Licence. "
         "Respond ONLY with valid JSON. Be precise — only report fields that are "
         "explicitly present in the document text."
     )
@@ -384,6 +396,7 @@ def extract_fields_from_document(
     customer_name = profile.get("name", "")
     customer_dob  = profile.get("dob", "")
     customer_nat  = profile.get("nationality", "")
+    customer_id   = profile.get("id_number", "")
 
     doc_block = json.dumps(
         [
@@ -402,6 +415,10 @@ def extract_fields_from_document(
   name: {customer_name}
   dob: {customer_dob}
   nationality: {customer_nat}
+  id_number / DL No: {customer_id}
+
+For driving licences, document_number MUST be the value beside "DL No" or "Licence No"
+(e.g. AP43720240003089). NEVER use a date like "OF 29-11-2024" as document_number.
 
 Uploaded documents (extracted text):
 {doc_block}
@@ -412,12 +429,12 @@ Return JSON:
   "documents": [
     {{
       "filename": "...",
-      "detected_doc_type": "aadhaar_card|pan_card|passport|voter_id|driving_licence|bank_passbook|unknown",
+      "detected_doc_type": "aadhaar_card|pan_card|passport|voter_id|driving_licence|unknown",
       "extracted_fields": {{
         "full_name": "name as printed on document or null",
         "date_of_birth": "DD/MM/YYYY or null",
         "gender": "M/F/Other or null",
-        "document_number": "the primary ID number or null",
+        "document_number": "primary ID — for driving_licence the DL No/Licence No on document or null",
         "expiry_date": "DD/MM/YYYY or null (null if no expiry)",
         "address": "full address string or null",
         "father_name": "father/guardian name or null",

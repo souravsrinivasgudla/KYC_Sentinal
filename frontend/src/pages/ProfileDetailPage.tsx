@@ -6,13 +6,13 @@ import {
   AlertTriangle,
   XCircle,
   User,
-  FileText,
   Shield,
   Sparkles,
 } from 'lucide-react'
 import { FieldStatus, KYCResult, fetchCase } from '../api'
 import ErrorBoundary from '../components/ErrorBoundary'
 import HumanReviewPanel from '../components/HumanReviewPanel'
+import EvidenceDetailSection from '../components/EvidenceDetailSection'
 import { decisionClass, decisionLabel } from '../utils/decision'
 import { collectReasons, getProfileStatus, getStatusSummary } from '../utils/profileReasons'
 import { nationalityLabel } from '../nationality'
@@ -78,8 +78,6 @@ function ProfileDetailContent({
   const fieldStatus = result.field_status || result.document_extraction?.field_status as Record<string, FieldStatus> | undefined
   const reasons = collectReasons(result)
   const summary = getStatusSummary(status, result)
-  const documentVerdict = result.document_verdict
-  const verdictClass = documentVerdict?.verdict?.toLowerCase() ?? 'unknown'
   const pendingReview = Boolean(decision.requires_human_review && !decision.human_reviewed)
   const officerBriefing = (result.human_review?.groq_officer_briefing as Record<string, string> | undefined)?.summary
 
@@ -189,53 +187,7 @@ function ProfileDetailContent({
         </div>
       </div>
 
-      {documentVerdict && Object.keys(documentVerdict).length > 0 && (
-        <div className="nf-card">
-          <h3><FileText size={16} style={{ display: 'inline', marginRight: 6, verticalAlign: -2 }} />Document Verification</h3>
-          {documentVerdict.verdict && (
-            <div className={`nf-banner-verdict ${verdictClass}`} style={{ marginBottom: '1rem' }}>
-              {documentVerdict.verdict === 'VERIFIED'
-                ? <CheckCircle size={18} style={{ flexShrink: 0 }} />
-                : <AlertTriangle size={18} style={{ flexShrink: 0 }} />}
-              <div>
-                <strong>{documentVerdict.verdict}</strong>
-                {documentVerdict.summary && (
-                  <p style={{ fontSize: '0.82rem', marginTop: 3 }}>{documentVerdict.summary}</p>
-                )}
-              </div>
-            </div>
-          )}
-          {(documentVerdict.per_document?.length ?? 0) > 0 ? (
-            <div className="nf-doc-grid">
-              {documentVerdict.per_document!.map((doc, i) => (
-                <div key={i} className="nf-doc-item">
-                  <CheckCircle size={16} style={{ color: doc.verdict === 'VERIFIED' ? 'var(--nf-success)' : 'var(--nf-warning)' }} />
-                  <span>{doc.doc_type_display || doc.doc_type} — {doc.filename}</span>
-                  {doc.verdict && (
-                    <span className={`nf-profile-doc-verdict ${doc.verdict.toLowerCase()}`}>{doc.verdict}</span>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p style={{ fontSize: '0.85rem', color: 'var(--nf-dim)' }}>No document details recorded.</p>
-          )}
-        </div>
-      )}
-
-      {(result.uploaded_evidence?.length ?? 0) > 0 && !documentVerdict && (
-        <div className="nf-card">
-          <h3><FileText size={16} style={{ display: 'inline', marginRight: 6, verticalAlign: -2 }} />Uploaded Documents</h3>
-          <div className="nf-doc-grid">
-            {result.uploaded_evidence!.map((d) => (
-              <div key={d.evidence_id} className="nf-doc-item">
-                <CheckCircle size={16} style={{ color: 'var(--nf-success)' }} />
-                <span>{d.original_filename}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      <EvidenceDetailSection result={result} />
 
       {Boolean(result.groq_verification?.summary) && (
         <div className="nf-card">

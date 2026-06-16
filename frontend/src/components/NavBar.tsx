@@ -18,6 +18,12 @@ export default function NavBar({ groqOk, navScrolled }: Props) {
           <NavLink to="/profiles" className={({ isActive }) => `nf-nav-link ${isActive ? 'active' : ''}`}>
             Profiles
           </NavLink>
+          <NavLink to="/dashboard" className={({ isActive }) => `nf-nav-link ${isActive ? 'active' : ''}`}>
+            Dashboard
+          </NavLink>
+          <NavLink to="/about" className={({ isActive }) => `nf-nav-link ${isActive ? 'active' : ''}`}>
+            About
+          </NavLink>
         </div>
       </div>
       <div className="nf-nav-tags">

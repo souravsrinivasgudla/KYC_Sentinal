@@ -12,7 +12,7 @@ FIELD_LABELS = {
     "occupation": "Occupation",
     "source_of_funds": "Source of Funds",
     "document_type": "Document Type",
-    "id_number": "Document Number",
+    "id_number": "ID / DL Number",
 }
 
 

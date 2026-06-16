@@ -91,6 +91,21 @@ export interface KYCResult {
     identity_verified?: boolean
     summary?: string
     critical_issues?: string[]
+    proof_of_funds_verified?: boolean
+    id_number_matches_declared?: boolean
+    proof_of_identity?: boolean
+    overall_confidence?: number
+    recommendation?: string
+    documents_reviewed?: Array<{
+      filename: string
+      doc_type: string
+      authenticity_score: number
+      matches_profile: boolean
+      id_number_matches: boolean
+      issues: string[]
+    }>
+    uploaded_documents?: Array<{ evidence_id: string; filename: string }>
+    groq_powered?: boolean
     has_proof_of_identity?: boolean
     has_proof_of_address?: boolean
     doc_types_detected?: string[]
@@ -155,6 +170,13 @@ export interface KYCResult {
       short_reason: string
       severity: string
     } | null
+    name_mismatch?: {
+      declared: string
+      extracted: string
+      reason: string
+      short_reason: string
+      severity: string
+    } | null
   }
   decision: {
     status: string
@@ -169,6 +191,12 @@ export interface KYCResult {
     urgency?: 'immediate' | 'standard' | 'low'
     groq_powered?: boolean
     id_mismatch?: {
+      detected: boolean
+      declared: string
+      extracted: string
+      reason: string
+    } | null
+    name_mismatch?: {
       detected: boolean
       declared: string
       extracted: string
@@ -208,6 +236,13 @@ export interface KYCResult {
     verified_types: string[]
     pipeline_blocked: boolean
     id_mismatch?: {
+      declared: string
+      extracted: string
+      reason: string
+      short_reason: string
+      severity: string
+    } | null
+    name_mismatch?: {
       declared: string
       extracted: string
       reason: string

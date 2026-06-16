@@ -203,6 +203,12 @@ def evidence_validation_agent(state: KYCState) -> KYCState:
         if id_mismatch["reason"] not in groq_result.get("critical_issues", []):
             groq_result.setdefault("critical_issues", []).insert(0, id_mismatch["reason"])
 
+    name_mismatch = state.document_verdict.get("name_mismatch")
+    if name_mismatch:
+        groq_valid = False
+        if name_mismatch["reason"] not in groq_result.get("critical_issues", []):
+            groq_result.setdefault("critical_issues", []).insert(0, name_mismatch["reason"])
+
     # ── Combined result ───────────────────────────────────────────────────────
     # For the combined pass:
     #   - Indian doc verification VERIFIED/NEEDS_REVIEW + Groq semantic ok = PASS

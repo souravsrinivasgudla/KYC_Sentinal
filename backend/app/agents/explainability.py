@@ -11,6 +11,7 @@ from app.services.id_cross_check import check_id_mismatch
 log = logging.getLogger(__name__)
 
 ID_MISMATCH_POINTS = 35
+NAME_MISMATCH_POINTS = 30
 
 
 def _risk_level_from_score(score: int) -> str:
@@ -41,6 +42,13 @@ def explainability_agent(state: KYCState) -> KYCState:
         state.document_verdict,
     )
 
+    from app.services.name_cross_check import check_name_mismatch
+
+    name_mismatch = state.document_verdict.get("name_mismatch") or check_name_mismatch(
+        state.customer_profile.get("name", ""),
+        state.document_verdict,
+    )
+
     if id_mismatch and not any(b.get("signal") == "ID Number Mismatch" for b in breakdown):
         breakdown.append({
             "signal": "ID Number Mismatch",
@@ -48,6 +56,18 @@ def explainability_agent(state: KYCState) -> KYCState:
             "source": "id_cross_check",
         })
         score = min(score + ID_MISMATCH_POINTS, 100)
+        if score >= 70:
+            decision_hint = "ESCALATE"
+        elif score >= 40:
+            decision_hint = "REVIEW"
+
+    if name_mismatch and not any(b.get("signal") == "Driving Licence Name Mismatch" for b in breakdown):
+        breakdown.append({
+            "signal": "Driving Licence Name Mismatch",
+            "points": NAME_MISMATCH_POINTS,
+            "source": "name_cross_check",
+        })
+        score = min(score + NAME_MISMATCH_POINTS, 100)
         if score >= 70:
             decision_hint = "ESCALATE"
         elif score >= 40:
@@ -92,12 +112,19 @@ def explainability_agent(state: KYCState) -> KYCState:
         ]
         if id_mismatch:
             groq_reasons.insert(0, id_mismatch["short_reason"])
+        if name_mismatch:
+            groq_reasons.insert(0, name_mismatch["short_reason"])
         if not groq_reasons:
             groq_reasons = ["Risk score exceeds approval threshold."]
 
     # Always surface ID mismatch as first reason
     if id_mismatch:
         short = id_mismatch["short_reason"]
+        if not any(short.lower()[:25] in r.lower() for r in groq_reasons):
+            groq_reasons.insert(0, short)
+
+    if name_mismatch:
+        short = name_mismatch["short_reason"]
         if not any(short.lower()[:25] in r.lower() for r in groq_reasons):
             groq_reasons.insert(0, short)
 
@@ -122,6 +149,7 @@ def explainability_agent(state: KYCState) -> KYCState:
         "groq_powered": groq_powered,
         "urgency": groq_urgency,
         "id_mismatch": id_mismatch,
+        "name_mismatch": name_mismatch,
         "document_type_mismatch": doc_type_match if (doc_type_match and doc_type_match.get("document_type_mismatch")) else None,
     }
 
@@ -133,6 +161,7 @@ def explainability_agent(state: KYCState) -> KYCState:
         {
             "reasons": groq_reasons[:4],
             "id_mismatch": bool(id_mismatch),
+            "name_mismatch": bool(name_mismatch),
             "groq_powered": groq_powered,
         },
     )

@@ -19,6 +19,8 @@ import NavBar from './components/NavBar'
 import HumanReviewPanel from './components/HumanReviewPanel'
 import ProfilesPage from './pages/ProfilesPage'
 import ProfileDetailPage from './pages/ProfileDetailPage'
+import DashboardPage from './pages/DashboardPage'
+import AboutPage from './pages/AboutPage'
 import { decisionClass } from './utils/decision'
 import { nationalityLabel } from './nationality'
 import { validateDocumentNumber } from './documentTypes'
@@ -149,6 +151,14 @@ export default function App() {
         <Route
           path="/profiles/:caseId"
           element={<ProfileDetailPage onRefresh={refreshHistory} />}
+        />
+        <Route
+          path="/dashboard"
+          element={<DashboardPage />}
+        />
+        <Route
+          path="/about"
+          element={<AboutPage />}
         />
         <Route
           path="/profiles"
@@ -285,6 +295,25 @@ export default function App() {
                         Entered: <strong>{result.decision.id_mismatch?.declared || result.explanation?.id_mismatch?.declared}</strong>
                         {' · '}
                         On document: <strong>{result.decision.id_mismatch?.extracted || result.explanation?.id_mismatch?.extracted}</strong>
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {(result.decision.name_mismatch?.detected || result.document_verdict?.name_mismatch || result.explanation?.name_mismatch) && (
+                  <div className="nf-banner-rejected" style={{ borderColor: 'rgba(255,165,0,0.6)', background: 'rgba(255,165,0,0.08)' }}>
+                    <AlertTriangle size={18} style={{ flexShrink: 0, color: 'var(--nf-warning)' }} />
+                    <div>
+                      <strong style={{ color: 'var(--nf-warning)' }}>Name Mismatch on Driving Licence</strong>
+                      <p style={{ fontSize: '0.82rem', marginTop: 3 }}>
+                        {result.decision.name_mismatch?.reason
+                          || result.explanation?.name_mismatch?.short_reason
+                          || 'The name you entered does not match the name on the driving licence.'}
+                      </p>
+                      <p style={{ fontSize: '0.75rem', marginTop: 4, color: 'var(--nf-dim)' }}>
+                        Entered: <strong>{result.decision.name_mismatch?.declared || result.explanation?.name_mismatch?.declared}</strong>
+                        {' · '}
+                        On document: <strong>{result.decision.name_mismatch?.extracted || result.explanation?.name_mismatch?.extracted}</strong>
                       </p>
                     </div>
                   </div>
@@ -761,7 +790,7 @@ export default function App() {
                           <div style={{ marginBottom: '1.5rem' }}>
                             <h3>🤖 Indian KYC Document Verification (ML + Vision)</h3>
                             <p style={{ fontSize: '0.82rem', color: 'var(--nf-muted)', margin: '0.5rem 0 1rem' }}>
-                              Groq Vision + HuggingFace OpenCV QR + XGBoost · Aadhaar · PAN · Passport · Voter ID · Driving Licence · Bank Passbook
+                              Groq Vision + HuggingFace OpenCV QR + XGBoost · Aadhaar · PAN · Passport · Voter ID · Driving Licence
                             </p>
 
                             {/* POI / POA badges */}
