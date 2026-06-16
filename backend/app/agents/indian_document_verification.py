@@ -75,9 +75,22 @@ DOC_DISPLAY = {
     "passport":        "Passport",
     "voter_id":        "Voter ID (EPIC)",
     "driving_licence": "Driving Licence",
-    "bank_passbook":   "Bank Passbook",
+    "bank_passbook":   "Bank Passbook (not accepted)",
     "unknown":         "Unrecognised Document",
 }
+
+ACCEPTED_DOC_TYPES = frozenset({
+    "aadhaar_card",
+    "pan_card",
+    "passport",
+    "voter_id",
+    "driving_licence",
+})
+
+UNSUPPORTED_DOC_MESSAGE = (
+    "Bank Passbook is not accepted as proof of identity. "
+    "Please upload Aadhaar, PAN, Passport, Voter ID, or Driving Licence."
+)
 
 REQUIRE_POI = True
 REQUIRE_POA = False
@@ -471,6 +484,8 @@ def _evaluate_document(
     doc: dict,
     customer_name: str,
     groq_doc: dict | None,
+    declared_doc_type: str = "",
+    declared_id: str = "",
 ) -> dict[str, Any]:
     """
     Run XGBoost type + validity classification using the fully enriched
@@ -488,6 +503,8 @@ def _evaluate_document(
         is_image=is_img,
         extraction_method=method,
         customer_name=customer_name,
+        declared_doc_type=declared_doc_type or None,
+        declared_id=declared_id,
         groq_fields=groq_doc,
     )
 
@@ -504,6 +521,36 @@ def _evaluate_document(
     groq_fields_extracted = ml.get("groq_extracted_fields", {})
     # Prefer Groq-extracted number when ML regex missed it (common on image Aadhaar)
     groq_doc_num = (groq_doc or {}).get("extracted_fields", {}).get("document_number")
+    groq_type_hint = (groq_doc or {}).get("detected_doc_type", "")
+    if doc_type == "bank_passbook" or groq_type_hint == "bank_passbook":
+        return {
+            "evidence_id":            evid_id,
+            "filename":               fname,
+            "doc_type":               "bank_passbook",
+            "doc_type_display":       DOC_DISPLAY["bank_passbook"],
+            "doc_type_confidence":    round(type_conf, 4),
+            "doc_number":             doc_number,
+            "is_valid_ml":            False,
+            "validity_confidence":    round(validity_conf, 4),
+            "verdict":                "REJECTED",
+            "verdict_reason":         UNSUPPORTED_DOC_MESSAGE,
+            "validity_issues":        ["Bank Passbook is not a supported document type for KYC verification"],
+            "kyc_purpose":            {"poi": False, "poa": True},
+            "completeness_score":     round(completeness, 3),
+            "trust_signal_score":     round(trust, 3),
+            "all_type_probabilities": ml.get("all_type_probabilities", {}),
+            "ml_used":                ml_used,
+            "groq_extracted_fields":  groq_fields_extracted,
+            "groq_doc_type_hint":     groq_type_hint,
+            "groq_integrity_score":   (groq_doc or {}).get("document_integrity", {}).get("integrity_score"),
+            "groq_notes":             (groq_doc or {}).get("groq_notes", ""),
+            "groq_profile_match":     (groq_doc or {}).get("profile_match", {}),
+            "qr_fallback_used":       False,
+            "qr_fallback_note":       "",
+            "qr_scan_result":         None,
+            "qr_cross_match_result":  None,
+        }
+
     if groq_doc_num and not doc_number:
         doc_number = str(groq_doc_num).replace(" ", "").strip()
     elif groq_doc_num and doc_number:
@@ -755,7 +802,7 @@ def _aggregate_verdict(
             (
                 f"All {len(evaluations)} uploaded document(s) failed Indian KYC verification. "
                 "No valid Aadhaar / PAN / Passport / Voter ID / "
-                "Driving Licence / Bank Passbook could be confirmed."
+                "Driving Licence could be confirmed."
             ),
             rejection_reasons,
         )
@@ -792,7 +839,7 @@ def _aggregate_verdict(
         rejection_reasons.insert(
             0,
             "No valid Proof of Address (POA) document found. "
-            "Aadhaar / Passport / Voter ID / Driving Licence / Bank Passbook required.",
+            "Aadhaar / Passport / Voter ID / Driving Licence required.",
         )
         return ("REJECTED", "POA requirement not satisfied.", rejection_reasons)
 
@@ -910,7 +957,9 @@ def indian_document_verification_agent(state: KYCState) -> KYCState:
     for doc in uploaded:
         fname    = doc.get("original_filename", "")
         groq_doc = groq_map.get(fname)
-        evaluation = _evaluate_document(doc, customer_name, groq_doc)
+        evaluation = _evaluate_document(
+            doc, customer_name, groq_doc, declared_doc_type, declared_id
+        )
 
         # Driving licence: canonical ID is the DL No printed on the document
         if evaluation.get("doc_type") == "driving_licence":

@@ -129,7 +129,7 @@ def extract_fields_from_image(
         "You can read Indian government-issued identity documents from images. "
         "Supported document types: Aadhaar Card (UIDAI), PAN Card (Income Tax Dept), "
         "Indian Passport (MEA), Voter ID / EPIC (Election Commission), "
-        "Driving Licence (RTO), Bank Passbook. "
+        "Driving Licence (RTO). "
         "Extract ALL visible text and structured fields from the image. "
         "Respond ONLY with valid JSON."
     )
@@ -137,10 +137,12 @@ def extract_fields_from_image(
     customer_name = customer_profile.get("name", "")
     customer_dob  = customer_profile.get("dob", "")
     customer_id   = customer_profile.get("id_number", "")
+    customer_doc  = customer_profile.get("document_type", "")
 
     prompt = f"""Customer declared name: {customer_name}
 Customer declared DOB: {customer_dob}
-Customer declared ID / DL number (must match document): {customer_id}
+Customer declared document type: {customer_doc}
+Customer declared ID / account number (must match document): {customer_id}
 Filename: {filename}
 
 IMPORTANT — Driving Licence:
@@ -166,7 +168,7 @@ Return JSON with this exact structure:
   "documents": [
     {{
       "filename": "{filename}",
-      "detected_doc_type": "aadhaar_card|pan_card|passport|voter_id|driving_licence|bank_passbook|unknown",
+      "detected_doc_type": "aadhaar_card|pan_card|passport|voter_id|driving_licence|unknown",
       "extracted_fields": {{
         "full_name": "name as printed on document or null",
         "date_of_birth": "DD/MM/YYYY or null",
@@ -386,7 +388,7 @@ def extract_fields_from_document(
         "Your task is to extract all structured fields from Indian government-issued "
         "identity and address proof documents. "
         "Supported document types: Aadhaar Card, PAN Card, Passport, Voter ID (EPIC), "
-        "Driving Licence, Bank Passbook. "
+        "Driving Licence. "
         "Respond ONLY with valid JSON. Be precise — only report fields that are "
         "explicitly present in the document text."
     )
@@ -427,7 +429,7 @@ Return JSON:
   "documents": [
     {{
       "filename": "...",
-      "detected_doc_type": "aadhaar_card|pan_card|passport|voter_id|driving_licence|bank_passbook|unknown",
+      "detected_doc_type": "aadhaar_card|pan_card|passport|voter_id|driving_licence|unknown",
       "extracted_fields": {{
         "full_name": "name as printed on document or null",
         "date_of_birth": "DD/MM/YYYY or null",

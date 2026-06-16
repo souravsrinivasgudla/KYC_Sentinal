@@ -53,7 +53,7 @@ KEYWORDS = {
     "passport":        ["passport", "republic of india", "nationality", "mrz", "ministry of external", "date of issue", "place of birth"],
     "voter_id":        ["election commission", "voter", "epic", "electoral", "elector", "विधानसभा", "constituency"],
     "driving_licence": ["driving licence", "driving license", "transport", "rto", "vehicle class", "dl no", "licence no"],
-    "bank_passbook":   ["bank", "passbook", "account no", "ifsc", "branch", "savings account", "current account", "account holder"],
+    "bank_passbook":   ["bank", "passbook", "account no", "acc no", "a/c no", "ifsc", "branch", "savings account", "current account", "account holder", "account number"],
 }
 
 # Fields that each document type is expected to contain (for completeness check)
@@ -135,13 +135,18 @@ def _check_number_format(text: str) -> dict[str, bool]:
     }
 
 
-def _extract_number_from_text(text: str, doc_type: str) -> str:
+def _extract_number_from_text(text: str, doc_type: str, declared_id: str = "") -> str:
     """Try to extract the document number from text."""
     if doc_type == "driving_licence":
-        from app.services.id_cross_check import extract_dl_number_from_text
-        dl_no = extract_dl_number_from_text(text)
+        from app.services.id_cross_check import extract_dl_number_from_text, normalize_dl_id
+        dl_no = extract_dl_number_from_text(text, declared_id=declared_id)
         if dl_no:
             return normalize_dl_id(dl_no)
+    if doc_type == "bank_passbook":
+        from app.services.account_cross_check import extract_account_number_from_text, normalize_account_number
+        ac_no = extract_account_number_from_text(text, declared_id=declared_id)
+        if ac_no:
+            return normalize_account_number(ac_no)
     pattern_map = {
         "aadhaar_card":    PATTERNS["aadhaar"],
         "pan_card":        PATTERNS["pan"],
@@ -187,6 +192,19 @@ def _dl_format_ok(doc_number: str) -> bool:
     if any(p.match(compact) for p in patterns):
         return True
     return bool(PATTERNS["dl"].search(doc_number))
+
+
+def _account_format_ok(doc_number: str) -> bool:
+    from app.services.account_cross_check import account_format_ok
+    return account_format_ok(doc_number)
+
+
+def _resolve_declared_type_key(declared_display: str | None) -> str | None:
+    """Map intake form label (e.g. 'Bank Passbook') to classifier doc_type key."""
+    if not declared_display:
+        return None
+    from app.services.doc_type_match import DECLARED_TO_KEY
+    return DECLARED_TO_KEY.get(declared_display.strip().lower())
 
 
 def _parse_date_value(raw: str) -> date | None:
@@ -327,6 +345,7 @@ def extract_doc_features(
     extraction_method: str,
     customer_name: str = "",
     declared_doc_type: str | None = None,
+    declared_id: str = "",
     groq_fields: dict | None = None,          # ← NEW: Groq-extracted fields
 ) -> tuple[dict, str, str]:
     """
@@ -345,10 +364,12 @@ def extract_doc_features(
     # ── Step 1: Infer document type ──────────────────────────────────────────
     # Groq-detected type takes priority over regex heuristics
     groq_doc_type = gf.get("detected_doc_type", "")
+    declared_key = _resolve_declared_type_key(declared_doc_type)
+
     if groq_doc_type and groq_doc_type in DOC_TYPES:
         inferred_type = groq_doc_type
-    elif declared_doc_type:
-        inferred_type = declared_doc_type
+    elif declared_key:
+        inferred_type = declared_key
     else:
         keyword_hits = _detect_keywords(text_lower)
         num_checks   = _check_number_format(original_text)
@@ -375,7 +396,7 @@ def extract_doc_features(
     pm = gf.get("profile_match", {})      # Groq profile_match sub-dict
     di = gf.get("document_integrity", {}) # Groq document_integrity sub-dict
 
-    # Document number — for DL use value beside "DL No" / "Licence No" on document
+    # Document number — for DL use DL No; for passbook use ACC No / Account No
     groq_doc_num = ef.get("document_number") or ""
     if inferred_type == "driving_licence":
         from app.services.id_cross_check import extract_dl_number_from_text, normalize_dl_id
@@ -384,11 +405,25 @@ def extract_doc_features(
             groq_doc_num = label_dl
         elif groq_doc_num and str(groq_doc_num) not in ("null", "None", None):
             groq_doc_num = str(groq_doc_num).strip().upper()
+    elif inferred_type == "bank_passbook":
+        from app.services.account_cross_check import extract_account_number_from_text, normalize_account_number
+        label_ac = extract_account_number_from_text(original_text, declared_id=declared_id)
+        if label_ac:
+            groq_doc_num = label_ac
+        elif groq_doc_num and str(groq_doc_num) not in ("null", "None", None):
+            groq_doc_num = normalize_account_number(str(groq_doc_num))
     if groq_doc_num and str(groq_doc_num) not in ("null", "None", None):
-        doc_number = normalize_dl_id(str(groq_doc_num)) if inferred_type == "driving_licence" else str(groq_doc_num).replace(" ", "").strip()
+        if inferred_type == "driving_licence":
+            from app.services.id_cross_check import normalize_dl_id
+            doc_number = normalize_dl_id(str(groq_doc_num))
+        elif inferred_type == "bank_passbook":
+            from app.services.account_cross_check import normalize_account_number
+            doc_number = normalize_account_number(str(groq_doc_num))
+        else:
+            doc_number = str(groq_doc_num).replace(" ", "").strip()
         has_doc_number = True
     else:
-        doc_number = _extract_number_from_text(original_text, inferred_type)
+        doc_number = _extract_number_from_text(original_text, inferred_type, declared_id=declared_id)
         has_doc_number = bool(doc_number) or any(num_checks.values())
     doc_number_len = len(doc_number) if doc_number else 0
 
@@ -405,7 +440,7 @@ def extract_doc_features(
     elif inferred_type == "driving_licence":
         doc_number_format_ok = _dl_format_ok(doc_number) if doc_number else num_checks["dl"]
     elif inferred_type == "bank_passbook":
-        doc_number_format_ok = bool(PATTERNS["account"].fullmatch(doc_number)) if doc_number else num_checks["account"]
+        doc_number_format_ok = _account_format_ok(doc_number) if doc_number else num_checks["account"]
 
     # Name
     groq_name = ef.get("full_name")
@@ -505,10 +540,16 @@ def extract_doc_features(
     expected_len = expected_lengths.get(inferred_type or "", 10)
     number_length_diff = abs(doc_number_len - expected_len) if doc_number_len else expected_len
 
-    completeness_vals = [
-        int(has_doc_number), int(has_name), int(has_dob),
-        int(has_address), int(has_gender), int(has_photo), int(has_issuer),
-    ]
+    if inferred_type == "bank_passbook":
+        completeness_vals = [
+            int(has_doc_number), int(has_name), int(has_address),
+            int(has_issuer), int(has_qr_barcode),
+        ]
+    else:
+        completeness_vals = [
+            int(has_doc_number), int(has_name), int(has_dob),
+            int(has_address), int(has_gender), int(has_photo), int(has_issuer),
+        ]
     completeness_score = sum(completeness_vals) / len(completeness_vals)
 
     # Trust signal: Groq integrity score takes precedence if available
@@ -563,6 +604,7 @@ def classify_document(
     extraction_method: str,
     customer_name: str = "",
     declared_doc_type: str | None = None,
+    declared_id: str = "",
     groq_fields: dict | None = None,    # ← Groq-extracted fields, if available
 ) -> dict[str, Any]:
     """
@@ -580,6 +622,8 @@ def classify_document(
             "validity_issues": ["Document classifier model not available"],
         }
 
+    declared_key = _resolve_declared_type_key(declared_doc_type)
+
     features, inferred_type, doc_number = extract_doc_features(
         text_content=text_content,
         filename=filename,
@@ -587,6 +631,7 @@ def classify_document(
         extraction_method=extraction_method,
         customer_name=customer_name,
         declared_doc_type=declared_doc_type,
+        declared_id=declared_id,
         groq_fields=groq_fields,
     )
 
@@ -603,8 +648,10 @@ def classify_document(
 
     all_type_probs = {DOC_TYPES[i]: round(float(p), 4) for i, p in enumerate(type_proba)}
 
-    # Use ML type if not declared
-    final_type = declared_doc_type or pred_type
+    # Use declared type key when provided, else ML prediction
+    final_type = declared_key or pred_type
+    if declared_key and final_type == declared_key:
+        type_confidence = max(type_confidence, 0.82)
 
     # ── Predict validity ──────────────────────────────────────────────────────
     doc_type_label = DOC_TYPES.index(final_type) if final_type in DOC_TYPES else pred_type_idx
@@ -666,7 +713,8 @@ def classify_document(
     rules = _metadata.get("validity_rules", {}).get(final_type, {})
 
     if not features["has_doc_number"]:
-        issues.append("Document number not found")
+        if not (final_type == "bank_passbook" and doc_number):
+            issues.append("Document number not found")
     elif not features["doc_number_format_ok"]:
         issues.append(f"Document number format invalid (expected: {rules.get('description', '')})")
 
@@ -688,14 +736,16 @@ def classify_document(
         issues.append("MRZ (Machine Readable Zone) not detected")
 
     if final_type in ("bank_passbook",) and not features["has_qr_or_barcode"]:
-        issues.append("IFSC code not found in passbook")
+        if not (features["has_doc_number"] and features["has_name"]):
+            issues.append("IFSC code not found in passbook")
 
     if not features["has_photo"] and final_type not in ("bank_passbook",):
         if not (final_type == "driving_licence" and extraction_method in ("pypdf", "text")):
             issues.append("Photograph not detected")
 
     if features["completeness_score"] < 0.5:
-        issues.append(f"Document completeness low ({features['completeness_score']:.0%})")
+        if final_type != "bank_passbook" or features["completeness_score"] < 0.35:
+            issues.append(f"Document completeness low ({features['completeness_score']:.0%})")
 
     kyc_purpose = _metadata.get("doc_kyc_purpose", {}).get(final_type, {"poi": False, "poa": False})
 

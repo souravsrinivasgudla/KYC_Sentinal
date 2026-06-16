@@ -4,7 +4,7 @@ AGENT_REGISTRY = [
     {"id": "document_extraction",             "name": "Document Extraction Agent",              "phase": "intake",     "description": "Parses fields and scores extraction confidence"},
     {"id": "groq_verification",               "name": "Groq Verification Agent",                "phase": "intake",     "description": "AI-powered profile plausibility check via Groq"},
     {"id": "normalization",                   "name": "Profile Normalization Agent",             "phase": "processing", "description": "Standardizes names, dates, and addresses"},
-    {"id": "indian_document_verification",    "name": "Indian Document Verification Agent",     "phase": "verification","description": "XGBoost ML: verifies Indian KYC docs (Aadhaar/PAN/Passport/Voter ID/DL/Passbook)"},
+    {"id": "indian_document_verification",    "name": "Indian Document Verification Agent",     "phase": "verification","description": "XGBoost ML: verifies Indian KYC docs (Aadhaar/PAN/Passport/Voter ID/DL)"},
     {"id": "entity_resolution",               "name": "Entity Resolution Agent",                "phase": "screening",  "description": "Reduces false positives via fuzzy matching"},
     {"id": "compliance_screening",            "name": "Compliance Screening Agent",             "phase": "screening",  "description": "Sanctions, watchlist, and PEP screening"},
     {"id": "adverse_media",                   "name": "Adverse Media Agent",                    "phase": "screening",  "description": "Analyzes negative news and regulatory notices"},
