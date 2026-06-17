@@ -43,6 +43,71 @@ def _digits_only(value: str) -> str:
     return re.sub(r"\D", "", value or "")
 
 
+# ── Aadhaar number extraction ──────────────────────────────────────────────────
+# Aadhaar is 12 digits, printed as "XXXX XXXX XXXX". The 16-digit VID
+# ("XXXX XXXX XXXX XXXX") and 14-digit enrolment number must NOT be picked.
+# Match a *run* of 4-digit groups (2–4 groups) bounded by non-digits, then keep
+# only the runs that total exactly 12 digits.
+_DIGIT_GROUP_RUN = re.compile(r"(?<!\d)\d{4}(?:[\s\-]+\d{4}){1,3}(?!\d)")
+_BARE_12 = re.compile(r"(?<!\d)\d{12}(?!\d)")
+
+
+def is_aadhaar_format(value: str) -> bool:
+    """True when value is a 12-digit (Aadhaar-style) number."""
+    return len(_digits_only(value)) == 12
+
+
+def _grouped_runs(text: str):
+    """Yield (matched_text, digits_only) for each run of 4-digit groups."""
+    for m in _DIGIT_GROUP_RUN.finditer(text or ""):
+        grp = m.group(0)
+        yield grp, _digits_only(grp)
+
+
+def extract_aadhaar_number_from_text(text: str, declared: str = "") -> str:
+    """
+    Extract the Aadhaar number (12 digits, "XXXX XXXX XXXX") from document text.
+    Prefers the declared number when it appears in the text, and never returns a
+    16-digit VID or 14-digit enrolment number.
+    """
+    if not text:
+        return ""
+
+    declared_digits = _digits_only(declared)
+
+    # 1. Prefer the declared 12-digit number if it appears in the document.
+    if len(declared_digits) == 12:
+        for grp, digits in _grouped_runs(text):
+            if digits == declared_digits:
+                return grp.strip()
+        for m in _BARE_12.finditer(text):
+            if m.group(0) == declared_digits:
+                return m.group(0)
+
+    # 2. Otherwise pick a 12-digit 4-4-4 run (excludes 16-digit VID runs).
+    for grp, digits in _grouped_runs(text):
+        if len(digits) == 12:
+            return grp.strip()
+
+    # 3. Fallback: a bare standalone 12-digit number.
+    m = _BARE_12.search(text)
+    return m.group(0) if m else ""
+
+
+def find_declared_aadhaar_in_text(declared: str, text: str) -> str:
+    """Return the Aadhaar number from text when it matches the declared id_number."""
+    declared_digits = _digits_only(declared)
+    if len(declared_digits) != 12 or not text:
+        return ""
+    for grp, digits in _grouped_runs(text):
+        if digits == declared_digits:
+            return grp.strip()
+    for m in _BARE_12.finditer(text):
+        if m.group(0) == declared_digits:
+            return m.group(0)
+    return ""
+
+
 def normalize_dl_id(value: str) -> str:
     """Strip separators so TN-01-2019-1234567 matches TN0120191234567."""
     return re.sub(r"[\s\-/]", "", (value or "").upper())
@@ -248,6 +313,8 @@ def check_id_mismatch(
     for doc in document_verdict.get("per_document", []):
         text = doc.get("text_content", "") or ""
         if find_declared_dl_in_text(declared_id, text):
+            return None
+        if doc.get("doc_type") == "aadhaar_card" and find_declared_aadhaar_in_text(declared_id, text):
             return None
         if doc.get("doc_type") == "bank_passbook" and find_declared_account_in_text(declared_id, text):
             return None

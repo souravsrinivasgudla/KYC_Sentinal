@@ -735,6 +735,24 @@ body {
 
 .nf-review-drivers-impact { color: var(--nf-red); font-weight: 700; }
 
+/* System recommendation inside the Human Review panel */
+.nf-review-reco {
+  border-radius: 6px;
+  padding: 0.6rem 0.75rem;
+  margin: 0.25rem 0 0.75rem;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.03);
+}
+.nf-review-reco.reject { border-color: rgba(229,9,20,0.5); background: rgba(229,9,20,0.08); }
+.nf-review-reco.approve { border-color: rgba(70,211,105,0.45); background: rgba(70,211,105,0.07); }
+.nf-review-reco.review { border-color: rgba(232,163,23,0.5); background: rgba(232,163,23,0.08); }
+
+.nf-review-reco-head { font-size: 0.8rem; color: var(--nf-muted); margin-bottom: 0.3rem; }
+.nf-review-reco.reject .nf-review-reco-head strong { color: var(--nf-red); }
+.nf-review-reco.approve .nf-review-reco-head strong { color: var(--nf-success); }
+.nf-review-reco.review .nf-review-reco-head strong { color: var(--nf-warning); }
+.nf-review-reco p { font-size: 0.78rem; color: var(--nf-muted); line-height: 1.45; }
+
 /* Confidence block inside the Human Review panel (Part 7) */
 .nf-review-confidence {
   border: 1px solid rgba(255,255,255,0.1);
@@ -757,6 +775,46 @@ body {
 }
 
 .nf-review-confidence-guidance { font-size: 0.78rem; color: var(--nf-dim); margin-top: 0.3rem; }
+
+/* ── Entered-vs-document detail verification (Documents tab) ── */
+.nf-detailcheck {
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  margin-bottom: 1.25rem;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.03);
+}
+.nf-detailcheck.match { border-color: rgba(70,211,105,0.4); background: rgba(70,211,105,0.06); }
+.nf-detailcheck.mismatch { border-color: rgba(232,163,23,0.5); background: rgba(232,163,23,0.08); }
+
+.nf-detailcheck-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  margin-bottom: 0.6rem;
+}
+.nf-detailcheck.match .nf-detailcheck-title { color: var(--nf-success); }
+.nf-detailcheck.mismatch .nf-detailcheck-title { color: var(--nf-warning); }
+
+.nf-detailcheck-rows { display: flex; flex-direction: column; gap: 0.4rem; }
+
+.nf-detailcheck-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.78rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 4px;
+  background: rgba(255,255,255,0.03);
+}
+.nf-detailcheck-field { flex: 0 0 90px; color: var(--nf-dim); text-transform: uppercase; font-size: 0.62rem; letter-spacing: 0.05em; }
+.nf-detailcheck-vals { flex: 1; display: flex; flex-direction: column; gap: 1px; color: var(--nf-muted); }
+.nf-detailcheck-mark { flex: 0 0 auto; font-weight: 700; }
+.nf-detailcheck-row.ok .nf-detailcheck-mark { color: var(--nf-success); }
+.nf-detailcheck-row.bad .nf-detailcheck-mark { color: var(--nf-red); }
+.nf-detailcheck-row.bad { background: rgba(229,9,20,0.08); }
 
 /* ── Declared vs detected document-type check (Documents tab) ── */
 .nf-doctype-check {

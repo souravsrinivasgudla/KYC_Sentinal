@@ -45,6 +45,11 @@ def _extract_images_from_pdf(content: bytes) -> list[bytes]:
     try:
         from pypdf import PdfReader
         reader = PdfReader(io.BytesIO(content))
+        if reader.is_encrypted:
+            try:
+                reader.decrypt("")
+            except Exception:
+                pass
         for page in reader.pages[:3]:  # first 3 pages
             for img_obj in page.images:
                 try:
@@ -56,6 +61,30 @@ def _extract_images_from_pdf(content: bytes) -> list[bytes]:
     except Exception:
         pass
     return images
+
+
+def _render_pdf_page_to_image(content: bytes) -> bytes | None:
+    """
+    Render the first PDF page to a PNG image using PyMuPDF. This works for
+    scanned / flattened / vector PDFs where pypdf finds no embedded images,
+    so vision OCR can still read them. Returns PNG bytes or None.
+    """
+    try:
+        import fitz  # PyMuPDF
+    except Exception:
+        return None
+    try:
+        doc = fitz.open(stream=content, filetype="pdf")
+        if doc.is_encrypted:
+            doc.authenticate("")  # try empty password (common for e-Aadhaar exports)
+        if doc.page_count == 0:
+            return None
+        page = doc.load_page(0)
+        # ~200 DPI render for legible OCR
+        pix = page.get_pixmap(matrix=fitz.Matrix(200 / 72, 200 / 72))
+        return pix.tobytes("png")
+    except Exception:
+        return None
 
 
 def extract_text(filename: str, content: bytes) -> dict:
@@ -84,33 +113,37 @@ def extract_text(filename: str, content: bytes) -> dict:
             pages = [p.extract_text() or "" for p in reader.pages[:5]]
             extracted = "\n".join(pages).strip()
 
+            # Get a page image for vision: prefer an embedded image, otherwise
+            # render the whole first page with PyMuPDF (works for scanned/flat PDFs).
+            page_images = _extract_images_from_pdf(content)
+            page_image = page_images[0] if page_images else _render_pdf_page_to_image(content)
+
             if len(extracted) >= 30:
-                # Has meaningful selectable text — also try embedded images for vision
+                # Has meaningful selectable text — also attach a page image for vision
                 result["text_content"] = extracted[:MAX_TEXT_LEN]
                 result["extraction_method"] = "pypdf"
-                page_images = _extract_images_from_pdf(content)
-                if page_images:
-                    img_bytes = _resize_image_if_needed(page_images[0], ".jpg")
+                if page_image:
+                    img_bytes = _resize_image_if_needed(page_image, ".jpg")
                     result["image_base64"] = base64.b64encode(img_bytes).decode("ascii")
                     result["image_media_type"] = "image/jpeg"
                     result["needs_vision"] = True
+            elif page_image:
+                # Image-based / scanned PDF — read it via vision from the page image
+                img_bytes = _resize_image_if_needed(page_image, ".jpg")
+                result["image_base64"] = base64.b64encode(img_bytes).decode("ascii")
+                result["image_media_type"] = "image/jpeg"
+                result["text_content"] = "[Scanned PDF — page image extracted for vision analysis]"
+                result["extraction_method"] = "pdf_image"
+                result["needs_vision"] = True
+                result["is_image"] = True
             else:
-                # Image-based / scanned PDF — no selectable text
-                # Try to extract embedded page images
-                page_images = _extract_images_from_pdf(content)
-                if page_images:
-                    img_bytes = _resize_image_if_needed(page_images[0], ".jpg")
-                    result["image_base64"] = base64.b64encode(img_bytes).decode("ascii")
-                    result["image_media_type"] = "image/jpeg"
-                    result["text_content"] = "[Scanned PDF — image extracted for vision analysis]"
-                    result["extraction_method"] = "pdf_image"
-                    result["needs_vision"] = True
-                    result["is_image"] = True
-                else:
-                    # Fallback: send the whole PDF page as a rendered image if possible
-                    result["text_content"] = "[Scanned PDF — no selectable text, no embedded images found]"
-                    result["extraction_method"] = "pdf_empty"
-                    result["needs_vision"] = True
+                # Could not get any text or image (e.g. password-protected PDF).
+                result["text_content"] = (
+                    "[Could not read PDF — it may be password-protected or corrupted. "
+                    "Please upload an unlocked copy or a clear photo of the document.]"
+                )
+                result["extraction_method"] = "pdf_unreadable"
+                result["needs_vision"] = False
         except Exception as e:
             result["text_content"] = f"[PDF parse error: {e}]"
             result["extraction_method"] = "failed"

@@ -106,6 +106,7 @@ function ProfileDetailContent({
           topRiskDrivers={result.top_risk_drivers}
           eddSummary={result.edd_triggered ? result.edd_summary : undefined}
           consistencyIssues={result.consistency_issues}
+          recommendation={result.decision.review_recommendation}
           onComplete={onReviewComplete}
         />
       )}

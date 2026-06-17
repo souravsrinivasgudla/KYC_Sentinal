@@ -453,6 +453,23 @@ export default function App() {
                   </div>
                 )}
 
+                {/* Entered details vs document detail mismatch (DOB, nationality, …) */}
+                {result.document_verdict?.field_verification?.has_mismatch && (
+                  <div className="nf-banner-rejected" style={{ borderColor: 'rgba(255,165,0,0.6)', background: 'rgba(255,165,0,0.08)' }}>
+                    <AlertTriangle size={18} style={{ flexShrink: 0, color: 'var(--nf-warning)' }} />
+                    <div>
+                      <strong style={{ color: 'var(--nf-warning)' }}>Entered Details Do Not Match the Document</strong>
+                      <ul style={{ marginTop: 5, paddingLeft: '1rem', fontSize: '0.82rem' }}>
+                        {result.document_verdict.field_verification.mismatches.map((m, i) => (
+                          <li key={i}>
+                            {m.label}: entered <strong>{m.declared}</strong> vs document <strong>{m.extracted}</strong>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                )}
+
                 {/* Document Verdict Summary (non-rejected) */}
                 {!result.document_rejected && result.document_verdict?.verdict && (
                   <div className={`nf-banner-verdict ${result.document_verdict.verdict.toLowerCase()}`}>
@@ -704,6 +721,29 @@ export default function App() {
                                 {result.document_verdict.document_type_mismatch
                                   ? <><AlertTriangle size={14} /> Document Type Mismatch</>
                                   : <><CheckCircle size={14} /> Document Type Verified</>}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Detail verification — entered vs document (name, DOB, ID, nationality) */}
+                          {(result.document_verdict.field_verification?.checks?.length ?? 0) > 0 && (
+                            <div className={`nf-detailcheck ${result.document_verdict.field_verification!.has_mismatch ? 'mismatch' : 'match'}`}>
+                              <div className="nf-detailcheck-title">
+                                {result.document_verdict.field_verification!.has_mismatch
+                                  ? <><AlertTriangle size={14} /> Entered details do not match the document</>
+                                  : <><CheckCircle size={14} /> Entered details match the document</>}
+                              </div>
+                              <div className="nf-detailcheck-rows">
+                                {result.document_verdict.field_verification!.checks.map((c, i) => (
+                                  <div key={i} className={`nf-detailcheck-row ${c.match ? 'ok' : 'bad'}`}>
+                                    <span className="nf-detailcheck-field">{c.label}</span>
+                                    <span className="nf-detailcheck-vals">
+                                      <span>Entered: <strong>{c.declared}</strong></span>
+                                      <span>Document: <strong>{c.extracted}</strong></span>
+                                    </span>
+                                    <span className="nf-detailcheck-mark">{c.match ? '✓' : '✗'}</span>
+                                  </div>
+                                ))}
                               </div>
                             </div>
                           )}
@@ -1119,6 +1159,7 @@ export default function App() {
                     topRiskDrivers={result.top_risk_drivers}
                     eddSummary={result.edd_triggered ? result.edd_summary : undefined}
                     consistencyIssues={result.consistency_issues}
+                    recommendation={result.decision.review_recommendation}
                     onAskCopilot={() => setTab('copilot')}
                     onComplete={handleReview}
                   />

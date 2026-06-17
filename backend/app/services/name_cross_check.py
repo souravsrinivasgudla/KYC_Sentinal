@@ -1,4 +1,6 @@
-"""Cross-check declared customer name against names on uploaded driving licences."""
+"""Cross-check declared customer name against the name on any uploaded ID document
+(Aadhaar, PAN, Passport, Voter ID, Driving Licence) — comparing the declared name
+with the name extracted from the document text / Groq vision / QR payload."""
 
 from __future__ import annotations
 
@@ -6,6 +8,18 @@ import re
 from typing import Any
 
 from rapidfuzz import fuzz
+
+# Proof-of-identity document types whose printed name must match the applicant.
+POI_DOC_TYPES = {"aadhaar_card", "pan_card", "passport", "voter_id", "driving_licence"}
+
+# Human-friendly document labels for mismatch messages.
+_DOC_LABEL = {
+    "aadhaar_card": "Aadhaar card",
+    "pan_card": "PAN card",
+    "passport": "passport",
+    "voter_id": "Voter ID",
+    "driving_licence": "driving licence",
+}
 
 NAME_LABEL_PATTERNS = [
     re.compile(r"name\s*[:\-]?\s*([A-Za-z][A-Za-z\s.'\-]{2,80})", re.IGNORECASE),
@@ -67,13 +81,23 @@ def extract_name_from_dl_text(text: str) -> str:
 
 
 def _document_name_candidates(doc: dict[str, Any]) -> list[str]:
+    """All names we could read off the document: explicit field, Groq-vision /
+    QR-decoded fields, and (for DLs) labelled text."""
     candidates: list[str] = []
-    if doc.get("name_from_document"):
-        candidates.append(str(doc["name_from_document"]))
+
+    def _add(val: Any) -> None:
+        if val and str(val).strip().lower() not in ("", "null", "none"):
+            candidates.append(str(val))
+
+    _add(doc.get("name_from_document"))
     gf = doc.get("groq_extracted_fields") or {}
-    full_name = gf.get("full_name")
-    if full_name and str(full_name).strip().lower() not in ("", "null", "none"):
-        candidates.append(str(full_name))
+    # Groq vision and QR-merged fields use a few possible name keys.
+    for key in ("full_name", "name", "name_on_card", "name_on_document", "holder_name"):
+        _add(gf.get(key))
+    # QR-decoded name (Aadhaar QR XML / barcode payload), if surfaced.
+    qr = doc.get("qr_scan_result") or {}
+    _add(qr.get("qr_full_name") or qr.get("full_name"))
+
     text_name = extract_name_from_dl_text(doc.get("text_content", "") or "")
     if text_name:
         candidates.append(text_name)
@@ -129,21 +153,31 @@ def check_name_mismatch(
     if not document_verdict:
         return None
 
-    dl_docs = [
+    id_docs = [
         doc for doc in document_verdict.get("per_document", [])
-        if doc.get("doc_type") == "driving_licence"
+        if doc.get("doc_type") in POI_DOC_TYPES
     ]
-    if not dl_docs:
+    if not id_docs:
         return None
 
-    if any(_name_matches_document(declared_name, doc) for doc in dl_docs):
+    # Only consider documents from which we actually read a name — otherwise we
+    # can't compare and must not raise a false mismatch.
+    docs_with_name = [d for d in id_docs if _document_name_candidates(d)]
+    if not docs_with_name:
         return None
 
+    # If the declared name matches ANY identity document, there is no mismatch.
+    if any(_name_matches_document(declared_name, doc) for doc in docs_with_name):
+        return None
+
+    # Mismatch: surface the document and the name printed on it.
     extracted_display = ""
-    for doc in dl_docs:
+    doc_type = ""
+    for doc in docs_with_name:
         for candidate in _document_name_candidates(doc):
             if normalize_name(candidate):
                 extracted_display = candidate.strip()
+                doc_type = doc.get("doc_type", "")
                 break
         if extracted_display:
             break
@@ -152,14 +186,16 @@ def check_name_mismatch(
         return None
 
     declared_display = declared_name.strip()
+    label = _DOC_LABEL.get(doc_type, "identity document")
 
     return {
         "declared": declared_display,
         "extracted": extracted_display,
+        "doc_type": doc_type,
         "reason": (
             f"Name entered ({declared_display}) does not match the name "
-            f"on the driving licence ({extracted_display})."
+            f"on the {label} ({extracted_display})."
         ),
-        "short_reason": "Entered name does not match the name on the driving licence.",
+        "short_reason": f"Entered name does not match the name on the {label}.",
         "severity": "critical",
     }

@@ -20,6 +20,19 @@ def decision_agent(state: KYCState) -> KYCState:
     id_mismatch = explanation.get("id_mismatch")
     name_mismatch = explanation.get("name_mismatch")
 
+    # Any entered-vs-document detail mismatch must go to a human reviewer with a
+    # recommendation — never auto-approve.
+    review_recommendation = state.document_verdict.get("review_recommendation")
+    if review_recommendation and review_recommendation.get("force_review") and decision == "APPROVE":
+        score = max(score, 45)
+        decision = "REVIEW"
+        requires_review = True
+        state.risk_assessment = {
+            **state.risk_assessment,
+            "risk_score": score,
+            "risk_level": state.risk_assessment.get("risk_level") or "Medium",
+        }
+
     # Wrong ID or name vs document must never auto-approve
     if (id_mismatch or name_mismatch) and score < 45:
         score = 45
@@ -53,6 +66,8 @@ def decision_agent(state: KYCState) -> KYCState:
             "extracted":  name_mismatch["extracted"],
             "reason":     name_mismatch["short_reason"],
         } if name_mismatch else None,
+        # Reviewer guidance for entered-vs-document detail mismatches.
+        "review_recommendation": review_recommendation,
     }
     state.workflow_path.append("decision")
     log_event(

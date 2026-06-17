@@ -18,12 +18,17 @@ interface Props {
   topRiskDrivers?: RiskContribution[]
   eddSummary?: string
   consistencyIssues?: ConsistencyIssue[]
+  recommendation?: {
+    suggested_action: 'APPROVE' | 'REJECT' | 'REVIEW'
+    headline: string
+    reason: string
+  } | null
   onAskCopilot?: () => void
   compact?: boolean
   onComplete?: (result: KYCResult) => void
 }
 
-export default function HumanReviewPanel({ caseId, briefing, confidence, topRiskDrivers, eddSummary, consistencyIssues, onAskCopilot, compact = false, onComplete }: Props) {
+export default function HumanReviewPanel({ caseId, briefing, confidence, topRiskDrivers, eddSummary, consistencyIssues, recommendation, onAskCopilot, compact = false, onComplete }: Props) {
   const [comment, setComment] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -49,6 +54,14 @@ export default function HumanReviewPanel({ caseId, briefing, confidence, topRisk
       role="presentation"
     >
       <h3>{compact ? 'Human Review' : 'Human Review Required'}</h3>
+      {recommendation && (
+        <div className={`nf-review-reco ${recommendation.suggested_action.toLowerCase()}`}>
+          <div className="nf-review-reco-head">
+            System recommendation: <strong>{recommendation.headline}</strong>
+          </div>
+          <p>{recommendation.reason}</p>
+        </div>
+      )}
       {eddSummary && (
         <div className="nf-review-edd">
           <div className="nf-review-edd-title">Enhanced Due Diligence</div>

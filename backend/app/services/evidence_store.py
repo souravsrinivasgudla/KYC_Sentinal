@@ -30,21 +30,14 @@ def _save_manifest(data: dict) -> None:
 
 def _hydrate_image(entry: dict) -> dict:
     """
-    Re-read the stored image file and inject image_base64 / image_media_type
-    back into the entry dict if the document is an image or needs vision processing.
-    This keeps the manifest lean while ensuring agents always have
-    the image data available when needed.
+    Re-read the stored file and inject image_base64 / image_media_type back into
+    the entry, since image_base64 is stripped from the lean manifest.
+
+    IMPORTANT: for PDFs we must NOT base64-encode the raw .pdf bytes as an image
+    (vision can't read that). Instead we re-run extract_text, which renders the
+    PDF page to a proper image.
     """
-    # Trigger hydration if: explicitly flagged, OR is an image file extension
     stored_path = entry.get("stored_path", "")
-    ext = Path(stored_path).suffix.lower() if stored_path else ""
-    is_img_ext = ext in {".jpg", ".jpeg", ".png", ".webp"}
-
-    needs_vision = entry.get("needs_vision") or entry.get("is_image") or is_img_ext
-
-    if not needs_vision:
-        return entry
-
     if not stored_path:
         return entry
 
@@ -52,18 +45,42 @@ def _hydrate_image(entry: dict) -> dict:
     if not path.exists():
         return entry
 
-    # Already hydrated in memory
+    ext = path.suffix.lower()
+    is_img_ext = ext in {".jpg", ".jpeg", ".png", ".webp"}
+    is_pdf = ext == ".pdf"
+    needs_vision = entry.get("needs_vision") or entry.get("is_image") or is_img_ext
+
+    # Already hydrated in memory.
     if entry.get("image_base64"):
+        return entry
+    # Nothing to hydrate for plain non-image, non-PDF docs.
+    if not needs_vision and not is_pdf:
         return entry
 
     try:
         import base64
         content = path.read_bytes()
-        ext_actual = path.suffix.lower()
-        media_type = "image/jpeg" if ext_actual in (".jpg", ".jpeg") else "image/png"
 
+        if is_pdf:
+            # Regenerate the rendered page image (and refreshed text) via the parser.
+            from app.services.document_parser import extract_text
+            reparsed = extract_text(entry.get("original_filename", path.name), content)
+            if reparsed.get("image_base64"):
+                entry = dict(entry)
+                entry["image_base64"]     = reparsed["image_base64"]
+                entry["image_media_type"] = reparsed.get("image_media_type", "image/jpeg")
+                entry["needs_vision"]     = True
+                if reparsed.get("is_image"):
+                    entry["is_image"] = True
+                # Keep any freshly extracted text if the manifest had none.
+                if reparsed.get("text_content") and not entry.get("text_content"):
+                    entry["text_content"] = reparsed["text_content"]
+            return entry
+
+        # Image file: resize and encode.
+        media_type = "image/jpeg" if ext in (".jpg", ".jpeg") else "image/png"
         from app.services.document_parser import _resize_image_if_needed
-        resized = _resize_image_if_needed(content, ext_actual)
+        resized = _resize_image_if_needed(content, ext)
 
         entry = dict(entry)  # copy — don't mutate manifest cache
         entry["image_base64"]     = base64.b64encode(resized).decode("ascii")

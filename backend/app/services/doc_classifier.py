@@ -622,8 +622,6 @@ def classify_document(
             "validity_issues": ["Document classifier model not available"],
         }
 
-    declared_key = _resolve_declared_type_key(declared_doc_type)
-
     features, inferred_type, doc_number = extract_doc_features(
         text_content=text_content,
         filename=filename,
@@ -648,10 +646,16 @@ def classify_document(
 
     all_type_probs = {DOC_TYPES[i]: round(float(p), 4) for i, p in enumerate(type_proba)}
 
-    # Use declared type key when provided, else ML prediction
-    final_type = declared_key or pred_type
-    if declared_key and final_type == declared_key:
-        type_confidence = max(type_confidence, 0.82)
+    # Detected type comes from the ACTUAL document — vision detection first, then
+    # the ML prediction. The DECLARED type is deliberately NOT used here, so a
+    # genuine type mismatch (e.g. an Aadhaar uploaded as "Driving Licence") is
+    # detected instead of being masked by what the customer declared.
+    groq_detected = (groq_fields or {}).get("detected_doc_type", "")
+    if groq_detected in DOC_TYPES:
+        final_type = groq_detected
+        type_confidence = max(type_confidence, 0.80)
+    else:
+        final_type = pred_type
 
     # ── Predict validity ──────────────────────────────────────────────────────
     doc_type_label = DOC_TYPES.index(final_type) if final_type in DOC_TYPES else pred_type_idx

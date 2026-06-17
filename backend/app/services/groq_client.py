@@ -20,7 +20,16 @@ def _parse_json_response(text: str) -> dict[str, Any]:
     try:
         return json.loads(text)
     except json.JSONDecodeError:
-        return {"raw_response": text, "parse_error": True}
+        pass
+    # Some models wrap the JSON in prose ("Here is the JSON: {...}"). Extract the
+    # first balanced-looking {...} block as a fallback.
+    match = re.search(r"\{.*\}", text, re.DOTALL)
+    if match:
+        try:
+            return json.loads(match.group(0))
+        except json.JSONDecodeError:
+            pass
+    return {"raw_response": text, "parse_error": True}
 
 
 def groq_chat(system: str, user: str, temperature: float = 0.1) -> dict[str, Any]:
@@ -120,6 +129,61 @@ def groq_vision_chat(
         return {"error": str(exc), "fallback": True}
 
 
+# HuggingFace Inference Providers router (OpenAI-compatible). Vision model used to
+# read document fields when Groq is unavailable. Powered by the HF token.
+HF_ROUTER_URL = "https://router.huggingface.co/v1/chat/completions"
+HF_VISION_MODEL = "google/gemma-3-27b-it"
+
+
+def hf_vision_chat(
+    system: str,
+    text_prompt: str,
+    image_base64: str,
+    media_type: str = "image/jpeg",
+    temperature: float = 0.05,
+) -> dict[str, Any]:
+    """
+    Vision extraction via the HuggingFace Inference Providers router (gemma-3
+    vision). Returns parsed JSON, or a fallback dict on any failure. Used when
+    Groq vision is unavailable so document text extraction still works.
+    """
+    if not settings.hf_token:
+        return {"error": "HF token not configured", "fallback": True}
+
+    data_url = f"data:{media_type};base64,{image_base64}"
+    payload = {
+        "model": HF_VISION_MODEL,
+        "messages": [
+            {"role": "system", "content": system},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": text_prompt},
+                    {"type": "image_url", "image_url": {"url": data_url}},
+                ],
+            },
+        ],
+        "temperature": temperature,
+        "max_tokens": 1500,
+    }
+    try:
+        with httpx.Client(timeout=90.0) as client:
+            resp = client.post(
+                HF_ROUTER_URL,
+                headers={
+                    "Authorization": f"Bearer {settings.hf_token}",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+            )
+            resp.raise_for_status()
+            content = resp.json()["choices"][0]["message"]["content"]
+            return _parse_json_response(content)
+    except Exception as exc:  # noqa: BLE001 — HF must be non-fatal to the pipeline
+        log.warning("HF vision chat failed (%s) — using fallback", exc)
+        return {"error": str(exc), "fallback": True}
+
+
 def extract_fields_from_image(
     image_base64: str,
     media_type: str,
@@ -154,7 +218,7 @@ def extract_fields_from_image(
 
     prompt = f"""Customer declared name: {customer_name}
 Customer declared DOB: {customer_dob}
-Customer declared document type: {customer_doc}
+Customer declared document type: {customer_doc} (FOR REFERENCE ONLY — identify the ACTUAL document type from the image; do NOT assume it matches the declared type)
 Customer declared ID / account number (must match document): {customer_id}
 Filename: {filename}
 
@@ -218,17 +282,28 @@ Return JSON with this exact structure:
   "overall_assessment": "brief summary"
 }}"""
 
-    try:
-        result = groq_vision_chat(system, prompt, image_base64, media_type, temperature=0.05)
-        result["_source"] = "vision"
+    def _usable(res: dict) -> bool:
+        return bool(res) and not res.get("fallback") and not res.get("error") \
+            and not res.get("parse_error") and bool(res.get("documents"))
+
+    # Primary: Groq vision. Fallback: HuggingFace vision (gemma-3) via the router.
+    result = groq_vision_chat(system, prompt, image_base64, media_type, temperature=0.05)
+    if _usable(result):
+        result["_source"] = "groq_vision"
         return result
-    except Exception as exc:
-        return {
-            "parse_error": True,
-            "error": str(exc),
-            "_source": "vision_failed",
-            "documents": [],
-        }
+
+    log.info("Groq vision unavailable/empty for '%s' — falling back to HF vision", filename)
+    hf_result = hf_vision_chat(system, prompt, image_base64, media_type, temperature=0.05)
+    if _usable(hf_result):
+        hf_result["_source"] = "hf_vision"
+        return hf_result
+
+    return {
+        "parse_error": True,
+        "error": "Both Groq and HF vision extraction failed or returned no documents",
+        "_source": "vision_failed",
+        "documents": [],
+    }
 def generate_escalation_reasons(
     decision: str,
     risk_score: int,

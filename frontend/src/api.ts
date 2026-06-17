@@ -226,6 +226,13 @@ export interface KYCResult {
       extracted: string
       reason: string
     } | null
+    review_recommendation?: {
+      force_review: boolean
+      suggested_action: 'APPROVE' | 'REJECT' | 'REVIEW'
+      headline: string
+      reason: string
+      mismatched_fields: string[]
+    } | null
   }
   human_review: Record<string, unknown>
   audit_log: AgentEvent[]
@@ -261,6 +268,12 @@ export interface KYCResult {
     detected_doc_type?: string
     document_type_mismatch?: boolean
     mismatch_severity?: 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH'
+    field_verification?: {
+      checks: { field: string; label: string; declared: string; extracted: string; match: boolean }[]
+      mismatches: { field: string; label: string; declared: string; extracted: string; match: boolean }[]
+      has_mismatch: boolean
+      note: string
+    }
     doc_type_match?: {
       declared_doc_type: string
       detected_doc_type: string

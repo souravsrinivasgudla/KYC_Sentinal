@@ -240,16 +240,13 @@ def _null_or_empty(val: Any) -> bool:
 
 def _get_image_bytes(doc: dict) -> bytes | None:
     """
-    Return raw image bytes for a document dict.
-    Tries stored_path first (most reliable), then reconstructs
-    from image_base64 if available.
+    Return raw IMAGE bytes for a document dict (for QR/OCR).
+
+    Prefers the already-processed image_base64 (a rendered page image for PDFs,
+    or the resized image for photos). The stored .pdf file is NOT a valid image,
+    so it is only used when the file itself is an image.
     """
-    stored = doc.get("stored_path")
-    if stored:
-        p = Path(stored)
-        if p.exists():
-            return p.read_bytes()
-    # Fallback: decode from base64
+    # 1. Processed image (rendered PDF page or resized photo).
     b64 = doc.get("image_base64") or doc.get("base64_preview")
     if b64:
         import base64
@@ -257,6 +254,12 @@ def _get_image_bytes(doc: dict) -> bytes | None:
             return base64.b64decode(b64)
         except Exception:
             pass
+    # 2. Stored file — only usable directly if it's an image (not a PDF).
+    stored = doc.get("stored_path")
+    if stored:
+        p = Path(stored)
+        if p.exists() and p.suffix.lower() in (".jpg", ".jpeg", ".png", ".webp"):
+            return p.read_bytes()
     return None
 
 
@@ -460,6 +463,7 @@ def _run_qr_fallback(
         "qr_found":           qr_result.get("qr_found", False),
         "qr_type":            qr_result.get("qr_type", ""),
         "qr_document_number": qr_number,
+        "qr_full_name":       qr_result.get("full_name"),
         "scan_confidence":    match_score,
         "scan_notes":         (
             f"OpenCV {qr_result.get('decode_method', '')} | "
@@ -751,6 +755,7 @@ def _evaluate_document(
             "qr_found":           qr_scan.get("qr_found", False),
             "qr_type":            qr_scan.get("qr_type", ""),
             "qr_document_number": qr_scan.get("qr_document_number"),
+            "qr_full_name":       qr_scan.get("qr_full_name"),
             "scan_confidence":    qr_scan.get("scan_confidence", 0.0),
             "scan_notes":         qr_scan.get("scan_notes", ""),
         } if qr_scan else None,
@@ -911,7 +916,25 @@ def indian_document_verification_agent(state: KYCState) -> KYCState:
         for doc in uploaded:
             fname    = doc.get("original_filename", "")
             groq_doc = groq_map.get(fname)
+            is_image = bool(doc.get("is_image") or doc.get("needs_vision"))
+
             if groq_doc is None:
+                # Groq extraction unavailable (e.g. API key down). For image
+                # documents, still run the offline OpenCV QR decode + HF OCR so
+                # we can read the name/number without Groq.
+                if is_image:
+                    log.info(
+                        "  Stage 1b: '%s' — Groq unavailable, running offline QR/OCR extraction",
+                        fname,
+                    )
+                    synthetic = {
+                        "detected_doc_type": "unknown",
+                        "extracted_fields": {},
+                        "_groq_unavailable": True,
+                    }
+                    enriched = _run_qr_fallback(doc, synthetic, state.customer_profile)
+                    groq_map[fname] = enriched
+                    qr_fallback_docs.append(fname)
                 continue
 
             ef           = groq_doc.get("extracted_fields", {})
@@ -946,11 +969,13 @@ def indian_document_verification_agent(state: KYCState) -> KYCState:
     # ── Stage 2: XGBoost classification ──────────────────────────────────────
     log.info("Doc Verification Stage 2 — XGBoost ML classification")
     from app.services.id_cross_check import (
+        extract_aadhaar_number_from_text,
         extract_dl_number_from_text,
         find_declared_dl_in_text,
         is_dl_format,
         is_plausible_dl_number,
         normalize_dl_id,
+        normalize_id,
     )
 
     evaluations: list[dict[str, Any]] = []
@@ -1010,6 +1035,26 @@ def indian_document_verification_agent(state: KYCState) -> KYCState:
                 if not gf.get("full_name"):
                     gf["full_name"] = doc_name.strip().upper()
 
+        # Aadhaar: canonical ID is the 12-digit "XXXX XXXX XXXX" number printed on
+        # the card — never the 16-digit VID or 14-digit enrolment number.
+        elif evaluation.get("doc_type") == "aadhaar_card":
+            text = doc.get("text_content", "") or ""
+            evaluation["text_content"] = text
+            aadhaar = extract_aadhaar_number_from_text(text, declared=declared_id)
+            if not aadhaar and groq_doc:
+                groq_num = str(
+                    (groq_doc.get("extracted_fields") or {}).get("document_number") or ""
+                ).strip()
+                # Only trust the Groq/QR number if it is a clean 12-digit value.
+                if len(normalize_id(groq_num)) == 12 and normalize_id(groq_num).isdigit():
+                    aadhaar = groq_num
+            if aadhaar:
+                evaluation["doc_number"] = normalize_id(aadhaar)
+                gf = evaluation.setdefault("groq_extracted_fields", {})
+                gf["document_number"] = aadhaar.strip()
+                if groq_doc:
+                    groq_doc.setdefault("extracted_fields", {})["document_number"] = aadhaar.strip()
+
         evaluations.append(evaluation)
         log.debug(
             "  '%s' → type=%s (%.0f%%) verdict=%s [groq=%s, qr=%s]",
@@ -1023,7 +1068,7 @@ def indian_document_verification_agent(state: KYCState) -> KYCState:
 
     # ── ID number cross-check (declared vs document) ──────────────────────────
     from app.services.id_cross_check import check_id_mismatch, normalize_id
-    from app.services.name_cross_check import check_name_mismatch
+    from app.services.name_cross_check import POI_DOC_TYPES, check_name_mismatch
 
     id_mismatch = check_id_mismatch(declared_id, {"per_document": evaluations})
     name_mismatch = check_name_mismatch(customer_name, {"per_document": evaluations})
@@ -1048,23 +1093,97 @@ def indian_document_verification_agent(state: KYCState) -> KYCState:
 
     if name_mismatch:
         log.warning(
-            "Name mismatch on DL: declared=%s extracted=%s",
+            "Name mismatch on identity document: declared=%s extracted=%s",
             name_mismatch["declared"], name_mismatch["extracted"],
         )
+        # A name mismatch must NOT auto-approve — route to a human reviewer with
+        # a recommendation (see review_recommendation below) instead of auto-rejecting.
         for ev in evaluations:
-            if ev.get("doc_type") != "driving_licence":
+            if ev.get("doc_type") not in POI_DOC_TYPES:
                 continue
             ev["name_mismatch"] = True
             ev["name_mismatch_detail"] = name_mismatch
             if ev.get("verdict") == "VERIFIED":
                 ev["verdict"] = "NEEDS_REVIEW"
                 ev["verdict_reason"] = (
-                    f"Driving licence verified but entered name ({name_mismatch['declared']}) "
-                    f"does not match name on document ({name_mismatch['extracted']})"
+                    f"Name on the document ({name_mismatch['extracted']}) does not match "
+                    f"the applicant's declared name ({name_mismatch['declared']}) — needs review"
                 )
-                ev["validity_issues"] = list(ev.get("validity_issues", [])) + [
-                    name_mismatch["short_reason"]
-                ]
+            ev["validity_issues"] = list(ev.get("validity_issues", [])) + [
+                name_mismatch["short_reason"]
+            ]
+
+    # ── Full profile ↔ document field verification (name, DOB, ID, nationality) ─
+    from app.services.profile_doc_match import verify_profile_against_document
+
+    field_verification = verify_profile_against_document(
+        state.customer_profile, {"per_document": evaluations}
+    )
+    # Remaining detail mismatches (e.g. date of birth, nationality) — also
+    # routed to human review and noted to the user.
+    extra_mismatches = [
+        m for m in field_verification["mismatches"] if m["field"] not in ("name", "id_number")
+    ]
+    if extra_mismatches:
+        note_lines = [
+            f"{m['label']}: entered '{m['declared']}' vs document '{m['extracted']}'"
+            for m in extra_mismatches
+        ]
+        log.warning("Profile/document detail mismatch: %s", "; ".join(note_lines))
+        for ev in evaluations:
+            if ev.get("doc_type") not in POI_DOC_TYPES:
+                continue
+            ev["detail_mismatch"] = True
+            ev["validity_issues"] = list(ev.get("validity_issues", [])) + note_lines
+            if ev.get("verdict") == "VERIFIED":
+                ev["verdict"] = "NEEDS_REVIEW"
+                ev["verdict_reason"] = "Document details do not match entered details: " + "; ".join(note_lines)
+
+    # ── Build a reviewer recommendation for ANY entered-vs-document mismatch ────
+    # Critical fields (name / ID / DOB) → suggest REJECT after review.
+    # Minor only (e.g. nationality)     → suggest the case MAY be allowed after review.
+    CRITICAL_FIELDS = {"name", "id_number", "dob"}
+    mismatch_labels: list[str] = []
+    mismatch_fields: set[str] = set()
+    if name_mismatch:
+        mismatch_labels.append(f"Name (entered '{name_mismatch['declared']}' vs document '{name_mismatch['extracted']}')")
+        mismatch_fields.add("name")
+    if id_mismatch:
+        mismatch_labels.append(f"ID Number (entered '{id_mismatch['declared']}' vs document '{id_mismatch['extracted']}')")
+        mismatch_fields.add("id_number")
+    for m in field_verification["mismatches"]:
+        if m["field"] not in mismatch_fields:
+            mismatch_labels.append(f"{m['label']} (entered '{m['declared']}' vs document '{m['extracted']}')")
+            mismatch_fields.add(m["field"])
+
+    review_recommendation: dict[str, Any] | None = None
+    if mismatch_fields:
+        has_critical = bool(mismatch_fields & CRITICAL_FIELDS)
+        if has_critical:
+            review_recommendation = {
+                "force_review": True,
+                "suggested_action": "REJECT",
+                "headline": "Recommend REJECT after review",
+                "reason": (
+                    "Identity-defining details on the document do not match what the customer "
+                    "entered: " + "; ".join(mismatch_labels) + ". This likely indicates the document "
+                    "belongs to a different person or the details were entered incorrectly. "
+                    "Recommend rejecting unless the customer can satisfactorily explain the discrepancy."
+                ),
+                "mismatched_fields": sorted(mismatch_fields),
+            }
+        else:
+            review_recommendation = {
+                "force_review": True,
+                "suggested_action": "APPROVE",
+                "headline": "May be allowed after review",
+                "reason": (
+                    "Only minor discrepancies were found between the entered and document details: "
+                    + "; ".join(mismatch_labels) + ". These are often caused by formatting or data-entry "
+                    "differences. The case may be approved after a quick manual confirmation."
+                ),
+                "mismatched_fields": sorted(mismatch_fields),
+            }
 
     # ── Declared vs detected document-type consistency ────────────────────────
     from app.services.doc_type_match import check_doc_type_mismatch
@@ -1095,9 +1214,21 @@ def indian_document_verification_agent(state: KYCState) -> KYCState:
         if verdict == "VERIFIED":
             verdict = "NEEDS_REVIEW"
             summary = (
-                f"Documents structurally valid but name mismatch on driving licence: "
-                f"entered {name_mismatch['declared']} vs document {name_mismatch['extracted']}"
+                f"Needs review — the name on the document ({name_mismatch['extracted']}) "
+                f"does not match the applicant's declared name ({name_mismatch['declared']})."
             )
+
+    # Detail mismatches (DOB, nationality, …) are flagged for review and noted.
+    if extra_mismatches and verdict == "VERIFIED":
+        verdict = "NEEDS_REVIEW"
+        summary = field_verification.get("note") or summary
+    if extra_mismatches:
+        rejection_reasons.insert(0, field_verification.get("note", "Document details do not match entered details."))
+
+    # Any entered-vs-document mismatch must go to a reviewer (never auto-approve).
+    if review_recommendation and verdict == "VERIFIED":
+        verdict = "NEEDS_REVIEW"
+        summary = review_recommendation["headline"] + " — " + (field_verification.get("note") or summary)
 
     verified_count = sum(1 for e in evaluations if e["verdict"] == "VERIFIED")
     rejected_count = sum(1 for e in evaluations if e["verdict"] == "REJECTED")
@@ -1132,6 +1263,8 @@ def indian_document_verification_agent(state: KYCState) -> KYCState:
         "qr_fallback_count":      qr_used_count,
         "id_mismatch":            id_mismatch,
         "name_mismatch":          name_mismatch,
+        "field_verification":     field_verification,
+        "review_recommendation":  review_recommendation,
     }
 
     state.workflow_path.append("indian_document_verification")

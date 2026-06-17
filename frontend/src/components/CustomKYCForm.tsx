@@ -23,7 +23,6 @@ interface Props {
   loading: boolean
 }
 
-const OPTIONAL: (keyof CustomCustomer)[] = ['source_of_funds', 'id_number']
 const ACCEPT = '.pdf,.txt,.jpg,.jpeg,.png,.webp'
 const STANDARD_FUNDS = ["Salary", "Business Revenue", "Savings", "Investments", "Inheritance", "Gifts"]
 
@@ -106,8 +105,6 @@ export default function CustomKYCForm({
 
   const removeDoc = (idx: number) => onDocumentsChange(documents.filter((_, i) => i !== idx))
 
-  const missingOptional = OPTIONAL.filter((f) => !form[f]?.trim())
-
   return (
     <form className="nf-form" onSubmit={(e: FormEvent) => { e.preventDefault(); onSubmit() }}>
       <div className="nf-form-grid">
@@ -161,8 +158,8 @@ export default function CustomKYCForm({
             )}
           </div>
         </div>
-        <div className={`nf-field ${!form.source_of_funds?.trim() ? 'nf-field-warn' : ''}`}>
-          <label>Source of Funds {!form.source_of_funds?.trim() && <span className="nf-warn-tag">Missing</span>}</label>
+        <div className="nf-field">
+          <label>Source of Funds</label>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <select
               value={fundsSelect}
@@ -201,8 +198,8 @@ export default function CustomKYCForm({
             />
           </div>
         )}
-        <div className={`nf-field ${idFormatError ? 'nf-field-error' : (!form.id_number?.trim() ? 'nf-field-warn' : '')}`}>
-          <label>{idLabel} {!form.id_number?.trim() && <span className="nf-warn-tag">Missing</span>}</label>
+        <div className={`nf-field ${idFormatError ? 'nf-field-error' : ''}`}>
+          <label>{idLabel}</label>
           <input
             value={form.id_number}
             onChange={(e) => set('id_number', sanitizeDocumentNumber(e.target.value))}
@@ -243,13 +240,6 @@ export default function CustomKYCForm({
           </div>
         )}
       </div>
-
-      {missingOptional.length > 0 && (
-        <div className="nf-notice">
-          <AlertTriangle size={14} />
-          Optional fields not provided will be flagged during verification.
-        </div>
-      )}
 
       <button type="submit" className="nf-btn nf-btn-primary" disabled={loading}>
         {loading ? 'Verifying...' : 'Start KYC Verification'}

@@ -325,9 +325,82 @@ def _detect_text_line_crops(
     return crops
 
 
+# HuggingFace Inference API OCR model (used when an HF token is configured —
+# no local torch/transformers download required).
+HF_OCR_MODEL = "microsoft/trocr-base-printed"
+HF_API_URL = f"https://api-inference.huggingface.co/models/{HF_OCR_MODEL}"
+HF_MAX_LINES = 18  # cap API calls per document
+
+
+def _hf_api_ocr(image_bytes: bytes, token: str) -> dict[str, Any]:
+    """
+    OCR an image via the HuggingFace Inference API (TrOCR), one call per detected
+    text line. Uses OpenCV line detection locally (no model download) and the HF
+    API for recognition. Degrades gracefully to empty on any failure.
+    """
+    try:
+        import io as _io
+
+        import httpx
+        from PIL import Image
+    except Exception as exc:  # pragma: no cover
+        log.warning("HF OCR deps unavailable: %s", exc)
+        return {"trocr_available": False, "text_lines": [], "full_text": "", "line_count": 0}
+
+    try:
+        pil_img = Image.open(_io.BytesIO(image_bytes)).convert("RGB")
+        crops = _detect_text_line_crops(pil_img)[:HF_MAX_LINES]
+    except Exception as exc:
+        log.warning("HF OCR line detection failed: %s", exc)
+        return {"trocr_available": False, "text_lines": [], "full_text": "", "line_count": 0}
+
+    if not crops:
+        return {"trocr_available": False, "text_lines": [], "full_text": "", "line_count": 0}
+
+    headers = {"Authorization": f"Bearer {token}"}
+    lines: list[str] = []
+    log.info("HF Inference OCR: sending %d line crop(s) to %s", len(crops), HF_OCR_MODEL)
+    try:
+        with httpx.Client(timeout=20.0) as client:
+            for crop in crops:
+                buf = _io.BytesIO()
+                crop.save(buf, format="PNG")
+                try:
+                    resp = client.post(HF_API_URL, headers=headers, content=buf.getvalue())
+                except Exception:
+                    continue
+                if resp.status_code != 200:
+                    # 503 = model warming up, 404 = model not served, 401 = bad token.
+                    log.warning("HF OCR call returned %s; stopping", resp.status_code)
+                    break
+                try:
+                    data = resp.json()
+                except Exception:
+                    continue
+                text = ""
+                if isinstance(data, list) and data:
+                    text = str(data[0].get("generated_text", "")).strip()
+                elif isinstance(data, dict):
+                    text = str(data.get("generated_text", "")).strip()
+                if text and len(text) > 1:
+                    lines.append(text)
+    except Exception as exc:
+        log.warning("HF OCR request failed: %s", exc)
+
+    return {
+        "trocr_available": bool(lines),
+        "text_lines": lines,
+        "full_text": "\n".join(lines),
+        "line_count": len(lines),
+        "method": "hf_inference_api",
+    }
+
+
 def extract_text_trocr(image_bytes: bytes) -> dict[str, Any]:
     """
-    Run TrOCR on an image to extract text lines.
+    Extract text lines from an image. Prefers the HuggingFace Inference API
+    (uses the configured HF token, no local model download); falls back to a
+    locally-loaded TrOCR model when no token is available.
 
     Returns:
       trocr_available : bool
@@ -335,6 +408,14 @@ def extract_text_trocr(image_bytes: bytes) -> dict[str, Any]:
       full_text       : str  (joined lines)
       line_count      : int
     """
+    # Preferred path: HF Inference API with the configured token.
+    token = _get_hf_token()
+    if token:
+        api_result = _hf_api_ocr(image_bytes, token)
+        if api_result.get("text_lines"):
+            return api_result
+        log.info("HF Inference OCR returned no text — trying local TrOCR fallback")
+
     if not _load_trocr():
         return {
             "trocr_available": False,
